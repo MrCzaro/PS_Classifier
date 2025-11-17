@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv
+venv/
+env/
+
+# Local utilities and history
+project_manager.py
+run_session.py
+projects/
+users.db
+instructions.json
