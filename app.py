@@ -1,5 +1,5 @@
 import asyncio
-from passlib.hash import bcrypt
+from passlib.hash import bcrypt_sha256 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import Column, Integer, String, select
@@ -35,7 +35,8 @@ async def get_user_by_login(db: AsyncSession, login: str):
 
 async def create_user(db: AsyncSession, login: str, password: str, email:str):
     """Hashes a password and creates a new user record."""
-    hashed_password = bcrypt.hash(password)
+    # Pre-has with SHA256 to support passwords longer than 72 bytes
+    hashed_password = bcrypt_sha256.hash(password)
     user = UserModel(login=login, password_hash=hashed_password, email=email)
     db.add(user)
     await db.commit()
@@ -149,9 +150,11 @@ async def submit_login(request):
             errors["password"] = "Password is required."
 
         if not errors:
+            # Pre-has the submitted password to check against the stored bcrypt hash.
             user = await get_user_by_login(db, data["login"])
-            if not user or not bcrypt.verify(data["password"], user.password_hash):
+            if not user or not bcrypt_sha256.verify(data["password"], user.password_hash):
                 errors["login"] = "Invalid login or password."
+        
         if errors:
             # re-render form with submitted values and error messaged
             return Div(
