@@ -3,7 +3,7 @@ from monsterui.all import *
 
 ### Application setup
 hdrs = Theme.blue.headers()
-app, rt = fast_app(hdrs=hdrs)
+app = fast_app(hdrs=hdrs)
 
 ### Helper functions
 def signup_card(error_message:str|None=None, prefill_email:str=""):
@@ -113,7 +113,7 @@ users = {
 ### Routers
 
 # --- HOME ROUTE ---
-@rt("/")
+@app.get("/")
 def get(request):
     user = request.session.get("user")
     if user:
@@ -130,12 +130,12 @@ def get(request):
 
 # --- LOGIN ROUTES ---
 
-@rt("/login")
-def get(request):
+@app.get("/login")
+def get_login(request):
     return layout(request, login_card())
 
-@rt("/login")
-async def post(request):
+@app.post("/login")
+async def post_login(request):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
@@ -152,12 +152,12 @@ async def post(request):
 
 # --- SIGNUP ROUTES ---
 
-@rt("/signup")
-def get(request):
+@app.get("/signup")
+def signup(request):
     return layout(request, signup_card())
 
-@rt("/signup")
-async def post(request):
+@app.post("/signup")
+async def post_signup(request):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
@@ -180,8 +180,8 @@ async def post(request):
 
 # --- LOGOUT ROUTE ---
 
-@rt("/logout")
-def get(request):
+@app.get("/logout")
+def logout(request):
     request.session.clear()
     return Redirect("/")
 
