@@ -12,9 +12,6 @@ from monsterui.all import *
 from predictions import * 
 
 
-import base64
-from io import BytesIO
-
 DATABASE_URL = "sqlite+aiosqlite:///./users.db"
 
 engine = create_async_engine(DATABASE_URL, echo=True)

@@ -2,11 +2,12 @@ from fasthtml.common import *
 from monsterui.all import *
 
 ### Application setup
-app, rt = fast_app()
+hdrs = Theme.blue.headers()
+app, rt = fast_app(hdrs=hdrs)
 
 ### Helper functions
-def signup_card(error_message=None, prefill_email=""):
-    """Identical structure to login, but for registration."""
+def signup_card(error_message:str|None=None, prefill_email:str=""):
+    """Signup card partial (returned by HTMX on POST errors)."""
     return Card(
         CardHeader("Create Account"),
         CardBody(
@@ -17,7 +18,11 @@ def signup_card(error_message=None, prefill_email=""):
                            value=prefill_email),
                 LabelInput("Password", name="password", id="password",
                            type="password", placeholder="Choose a password"),
+                LabelInput("Repeat Password", name="repeat_password", id="repeat_password",
+                           type="password", placeholder="Repeat password"),
                 Div(Button("Sign Up", cls=ButtonT.primary, type="submit"), cls="mt-4"),
+                action="/signup",
+                method="post",
                 hx_post="/signup",
                 hx_target="#content",
                 hx_swap="outerHTML"
@@ -26,7 +31,7 @@ def signup_card(error_message=None, prefill_email=""):
         CardFooter("Already have an account? ", A("Login", href="#", hx_get="/login", hx_target="#content"))
     )
 
-def login_card(error_message=None, prefill_email=""):
+def login_card(error_message:str|None = None, prefill_email:str=""):
     """
     Returns a login form card.
     error_message: optional string to display errors
@@ -43,6 +48,8 @@ def login_card(error_message=None, prefill_email=""):
                 LabelInput("Password", name="password", id="password",
                            type="password", placeholder="Password"),
                 Div(Button("Login", cls=ButtonT.primary, type="submit"), cls="mt-4"),
+                action="/login",
+                method="post",
                 hx_post="/login",
                 hx_target="#content",
                 hx_swap="outerHTML"
@@ -50,30 +57,34 @@ def login_card(error_message=None, prefill_email=""):
         ),
         CardFooter("Don't have an account? ", A("Sign up", href="#", hx_get="/signup", hx_target="#content"))
     )
+    
 
 def nav(request):
-    """Returns a session-aware navigation bar."""
+    """
+    Session-aware navbar. Buttons that load partials use hx_get into #content.
+    Logout uses a norma href (full reload) so Nav re-renders immediately.
+    """
     user = request.session.get("user")
-    
-    
+
     brand = A("Pressure Sore AI", href="/", cls="text-xl font-bold text-primary tracking-tight")
-    
+
     if user:
-        right_side = A(Button("Logout", cls=ButtonT.secondary), href="/logout")
+        right_side = A(
+            Button("Logout", cls=ButtonT.secondary), href="/logout")
     else:
-        login_btn = A(Button("Login", cls=ButtonT.ghost), 
-                      hx_get="/login", 
-                      hx_target="#content")
-        
-        signup_btn = A(Button("Signup", cls=ButtonT.primary), 
-                       hx_get="/signup", 
-                       hx_target="#content")
-        
+        login_btn = A(Button("Login", cls=ButtonT.ghost), hx_get="/login", hx_target="#content")
+
+        signup_btn = A(Button("Signup", cls=ButtonT.primary), hx_get="/signup", hx_target="#content")
+
         right_side = Div(login_btn, signup_btn, cls="space-x-2")
-    
+
     return NavBar(brand, right_side)
 
+
 def layout(request, content):
+    """
+    Centered container layout.
+    """
     return Html(
         Head(Title("Pressure Sore App")),
         Body(
@@ -83,12 +94,15 @@ def layout(request, content):
         )
     )
 
-def render_page(request, content):
-    """Decides whether to return full layout or just the partial content."""
-    if request.headers.get('hx-request'):
+def render(request, content):
+    """
+    If the request comes from HTMX (a navbar click), return only the content.
+    IF it is a direct browser visit, return the full layout.
+    """
+    if request.headers.get("HX-Request"):
         return content
-    return layout(request, content)
-
+    else:
+        return layout(request, content)
 
 ### Users
 users = {
@@ -97,8 +111,10 @@ users = {
 }
 
 ### Routers
+
+# --- HOME ROUTE ---
 @rt("/")
-def home(request):
+def get(request):
     user = request.session.get("user")
     if user:
         content = Card(
@@ -110,43 +126,49 @@ def home(request):
             CardHeader("Welcome"),
             CardBody("Please login or signup to access the application.")
         )
-    return render_page(request, content)
+    return layout(request, content)
 
 # --- LOGIN ROUTES ---
 
-@rt("/login", methods=["GET"])
-def get_login(request):
-    return render_page(request, login_card())
+@rt("/login")
+def get(request):
+    return layout(request, login_card())
 
-@rt("/login", methods=["POST"])
-async def post_login(request):
+@rt("/login")
+async def post(request):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
+    
 
+    if email == "" or password == "":
+        return login_card("All fields are required.", prefill_email=email)
+    
     if email not in users or users[email] != password:
-        return login_card("Invalid email or password.", prefill_email=email)
+        return login_card(request,login_card("Invalid email or password.", prefill_email=email))
     
     request.session["user"] = email
-    return Response(headers={"HX-Location": "/"})
+    return HtmxResponseHeaders(location="/")
 
 # --- SIGNUP ROUTES ---
 
-@rt("/signup", methods=["GET"])
-def get_signup(request):
-    return render_page(request, signup_card())
+@rt("/signup")
+def get(request):
+    return layout(request, signup_card())
 
-@rt("/signup", methods=["POST"])
-async def post_signup(request):
+@rt("/signup")
+async def post(request):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
+    repreat_password = form.get("repeat_password", "").strip()
 
-    # 1. Validation: Check if empty
+    if password != repreat_password:
+        return signup_card("Passwords do not match.", prefill_email=email)
+    
     if not email or not password:
         return signup_card("All fields are required.", prefill_email=email)
 
-    # 2. Validation: Check if user exists
     if email in users:
         return signup_card("User already exists. Please login.", prefill_email=email)
     
@@ -154,11 +176,12 @@ async def post_signup(request):
     users[email] = password
     request.session["user"] = email
     
-    # 4. Redirect to home (Updating the navbar)
-    return Response(headers={"HX-Location": "/"})
+    return HtmxResponseHeaders(location="/")
+
+# --- LOGOUT ROUTE ---
 
 @rt("/logout")
-def logout(request):
+def get(request):
     request.session.clear()
     return Redirect("/")
 
