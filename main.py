@@ -3,15 +3,15 @@ from monsterui.all import *
 
 ### Application setup
 hdrs = Theme.blue.headers()
-app = fast_app(hdrs=hdrs)
+app = FastHTML(hdrs=hdrs)
 
 ### Helper functions
 def signup_card(error_message:str|None=None, prefill_email:str=""):
     """Signup card partial (returned by HTMX on POST errors)."""
     return Card(
-        CardHeader("Create Account"),
+        CardHeader(H3("Create Account")),
         CardBody(
-            *([P(error_message, cls=TextT.red)] if error_message else []),
+            *([P(error_message, cls="text-red-600 font-semibold")] if error_message else []),
             Form(
                 LabelInput("Email", name="email", id="email",
                            placeholder="user@example.com",
@@ -28,7 +28,7 @@ def signup_card(error_message:str|None=None, prefill_email:str=""):
                 hx_swap="outerHTML"
             )
         ),
-        CardFooter("Already have an account? ", A("Login", href="#", hx_get="/login", hx_target="#content"))
+        CardFooter("Already have an account? ", A(B("Login"), href="#", hx_get="/login", hx_target="#content"))
     )
 
 def login_card(error_message:str|None = None, prefill_email:str=""):
@@ -38,9 +38,9 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
     prefill_email: email to pre-fill the form
     """
     return Card(
-        CardHeader("Login"),
+        CardHeader(H3("Login")),
         CardBody(
-            *([P(error_message, cls=TextT.red)] if error_message else []),
+            *([P(error_message, cls="bg-red-100 border border-red-300 text-red-700 p-2 rounded")] if error_message else []),
             Form(
                 LabelInput("Email", name="email", id="email",
                            placeholder="user@example.com",
@@ -55,43 +55,47 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
                 hx_swap="outerHTML"
             )
         ),
-        CardFooter("Don't have an account? ", A("Sign up", href="#", hx_get="/signup", hx_target="#content"))
+        CardFooter("Don't have an account? ", A(B("Sign up"), href="#", hx_get="/signup", hx_target="#content"))
     )
     
 
-def nav(request):
-    """
-    Session-aware navbar. Buttons that load partials use hx_get into #content.
-    Logout uses a norma href (full reload) so Nav re-renders immediately.
-    """
-    user = request.session.get("user")
-
-    brand = A("Pressure Sore AI", href="/", cls="text-xl font-bold text-primary tracking-tight")
-
-    if user:
-        right_side = A(
-            Button("Logout", cls=ButtonT.secondary), href="/logout")
-    else:
-        login_btn = A(Button("Login", cls=ButtonT.ghost), hx_get="/login", hx_target="#content")
-
-        signup_btn = A(Button("Signup", cls=ButtonT.primary), hx_get="/signup", hx_target="#content")
-
-        right_side = Div(login_btn, signup_btn, cls="space-x-2")
-
-    return NavBar(brand, right_side)
 
 
 def layout(request, content):
     """
-    Centered container layout.
+    Centered container layout with styled navbar.
     """
-    return Html(
-        Head(Title("Pressure Sore App")),
-        Body(
-            nav(request),
+    user = request.session.get("user")
+
+    # Logo
+    logo = A("Pressure Sore AI", href="/", cls="text-xl font-bold text-white tracking-tight")
+
+    # Links / buttons
+    links = [
+        A(Button("Login", cls=ButtonT.primary), hx_get="/login", hx_target="#content") if not user else None,
+        A(Button("Signup", cls=ButtonT.secondary), hx_get="/signup", hx_target="#content") if not user else None,
+        A(Button("Logout", cls=ButtonT.secondary), hx_get="/logout") if user else None,
+    ]
+    links = [c for c in links if c is not None]
+
+    # Navbar container: flex, justify-between, bg-blue
+    nav_bar = Nav(
+        Div(logo, cls="flex items-center"),         # left side
+        Div(*links, cls="flex gap-2 items-center"), # right side
+        cls="flex justify-between items-center bg-blue-600 px-4 py-2"
+    )
+
+    return Div(
+        Header(nav_bar),
+        Div(
             Container(content, id="content", cls="mt-10 max-w-lg"),
-            Footer("MrCzaro © 2025", cls="p-4 text-center text-gray-500")
-        )
+            Footer(
+                    "MrCzaro © 2025 Pressure Sore AI",
+                    cls="fixed bottom-0 left-0 w-full p-4 bg-blue-600 backdrop-blur text-center text-white"
+                ),
+            cls="flex flex-col min-h-screen"
+        ),
+        cls="min-h-screen flex flex-col"
     )
 
 def render(request, content):
@@ -114,25 +118,25 @@ users = {
 
 # --- HOME ROUTE ---
 @app.get("/")
-def get(request):
+def index(request):
     user = request.session.get("user")
     if user:
         content = Card(
-            CardHeader(f"Hello, {user}!"),
+            CardHeader(B(f"Hello, {user}!")),
             CardBody("You are now logged in and can access the classification tools."),
         )
     else:
         content = Card(
-            CardHeader("Welcome"),
+            CardHeader(B("Welcome")),
             CardBody("Please login or signup to access the application.")
         )
-    return layout(request, content)
+    return render(request, content)
 
 # --- LOGIN ROUTES ---
 
 @app.get("/login")
 def get_login(request):
-    return layout(request, login_card())
+    return render(request, login_card())
 
 @app.post("/login")
 async def post_login(request):
@@ -145,16 +149,17 @@ async def post_login(request):
         return login_card("All fields are required.", prefill_email=email)
     
     if email not in users or users[email] != password:
-        return login_card(request,login_card("Invalid email or password.", prefill_email=email))
+        return login_card("Invalid email or password.", prefill_email=email)
     
     request.session["user"] = email
-    return HtmxResponseHeaders(location="/")
+    return Redirect("/")
+
 
 # --- SIGNUP ROUTES ---
 
 @app.get("/signup")
 def signup(request):
-    return layout(request, signup_card())
+    return render(request, signup_card())
 
 @app.post("/signup")
 async def post_signup(request):
@@ -176,7 +181,7 @@ async def post_signup(request):
     users[email] = password
     request.session["user"] = email
     
-    return HtmxResponseHeaders(location="/")
+    return Redirect("/")
 
 # --- LOGOUT ROUTE ---
 
