@@ -1,9 +1,41 @@
-from fasthtml.common import *
+
 from monsterui.all import *
+from fasthtml.common import *
+
+import sqlite3
+from passwords_helper import hash_password, verify_password
+
+### Initialize or connect to the database
+
+DB_PATH = "users.db"
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    db = get_db()
+    db.execute("""
+               CREATE TABLE IF NOT EXISTS users(
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               email TEXT UNIQUE NOT NULL,
+               password_hash TEXT NOT NULL,
+               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+               )
+               """)
+    db.commit()
+    db.close()
+
+# Initialize DB on startup
+init_db()
+
 
 ### Application setup
 hdrs = Theme.blue.headers()
 app = FastHTML(hdrs=hdrs)
+db = get_db()
+
 
 ### Helper functions
 def signup_card(error_message:str|None=None, prefill_email:str=""):
@@ -73,12 +105,12 @@ def layout(request, content):
     # Links / buttons
     links = [
         A(Button("Login", cls=ButtonT.primary), hx_get="/login", hx_target="#content") if not user else None,
-        A(Button("Signup", cls=ButtonT.secondary), hx_get="/signup", hx_target="#content") if not user else None,
+        A(Button("Signup", cls=ButtonT.secondary,), hx_get="/signup", hx_target="#content") if not user else None,
         A(Button("Logout", cls=ButtonT.secondary), hx_get="/logout") if user else None,
     ]
     links = [c for c in links if c is not None]
 
-    # Navbar container: flex, justify-between, bg-blue
+    # Navbar container: flex, justify-between, bg-blu
     nav_bar = Nav(
         Div(logo, cls="flex items-center"),         # left side
         Div(*links, cls="flex gap-2 items-center"), # right side
@@ -88,7 +120,7 @@ def layout(request, content):
     return Div(
         Header(nav_bar),
         Div(
-            Container(content, id="content", cls="mt-10 max-w-lg"),
+            Container(content, id="content", clsx="mt-10 max-w-lg"),
             Footer(
                     "MrCzaro © 2025 Pressure Sore AI",
                     cls="fixed bottom-0 left-0 w-full p-4 bg-blue-600 backdrop-blur text-center text-white"
@@ -108,11 +140,6 @@ def render(request, content):
     else:
         return layout(request, content)
 
-### Users
-users = {
-    "testuser@test.com": "password123",
-    "test_user@test.com": "test_user123"
-}
 
 ### Routers
 
@@ -144,13 +171,17 @@ async def post_login(request):
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
     
-
-    if email == "" or password == "":
+    if not email or not password:
         return login_card("All fields are required.", prefill_email=email)
-    
-    if email not in users or users[email] != password:
+
+    # Fetch user from DB
+    db = get_db()
+    cur = db.execute("SELECT * FROM users WHERE email = ?", (email,))
+    user = cur.fetchone()
+    db.close()
+    if not user or not verify_password(password, user["password_hash"]):
         return login_card("Invalid email or password.", prefill_email=email)
-    
+            
     request.session["user"] = email
     return Redirect("/")
 
@@ -174,11 +205,20 @@ async def post_signup(request):
     if not email or not password:
         return signup_card("All fields are required.", prefill_email=email)
 
-    if email in users:
+    db = get_db()
+    # Check if user exists
+    cur = db.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if cur.fetchone():
+        db.close()
         return signup_card("User already exists. Please login.", prefill_email=email)
     
-    # 3. Success: Add to DB and Log them in
-    users[email] = password
+    
+    
+    # Save user into DB
+    hashed = hash_password(password)
+    db.execute("INSERT INTO users (email, password_hash) VALUES (?, ?)", (email, hashed))
+    db.commit()
+    db.close()
     
     request.session["user"] = email
     
@@ -191,5 +231,5 @@ def logout(request):
     request.session.clear()
     return Redirect("/")
 
-if __name__ == "__main__":
-    serve()
+#if __name__ == "__main__":
+serve()
