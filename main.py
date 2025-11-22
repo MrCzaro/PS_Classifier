@@ -179,6 +179,7 @@ async def post_signup(request):
     
     # 3. Success: Add to DB and Log them in
     users[email] = password
+    
     request.session["user"] = email
     
     return Redirect("/")
