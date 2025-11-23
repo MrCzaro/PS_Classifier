@@ -1,3 +1,5 @@
+from functools import wraps
+from inspect import iscoroutinefunction
 
 from monsterui.all import *
 from fasthtml.common import *
@@ -38,6 +40,25 @@ db = get_db()
 
 
 ### Helper functions
+def login_required(route_func):
+    """
+    Restrict access to authenticated users in FastHTML routes.
+    Works for both sync and async route handlers.
+    Redirects to `/login` if no `user` key exists in session.
+    """
+    @wraps(route_func)
+    async def wrapper(request, *args, **kwargs):
+        if not request.session.get("user"):
+            return Redirect("/login")
+        # If the orginal route is async, await it 
+        if iscoroutinefunction(route_func):
+            return await route_func(request, *args, **kwargs)
+        
+        # If normal sync function
+        
+        return route_func(request, *args, **kwargs)
+    return wrapper
+
 def signup_card(error_message:str|None=None, prefill_email:str=""):
     """Signup card partial (returned by HTMX on POST errors)."""
     return Card(
@@ -145,18 +166,15 @@ def render(request, content):
 
 # --- HOME ROUTE ---
 @app.get("/")
+@login_required
 def index(request):
     user = request.session.get("user")
-    if user:
-        content = Card(
-            CardHeader(B(f"Hello, {user}!")),
-            CardBody("You are now logged in and can access the classification tools."),
-        )
-    else:
-        content = Card(
-            CardHeader(B("Welcome")),
-            CardBody("Please login or signup to access the application.")
-        )
+
+    content = Card(
+        CardHeader(B(f"Hello, {user}!")),
+        CardBody("You are now logged in and can access the classification tools."),
+    )
+
     return render(request, content)
 
 # --- LOGIN ROUTES ---
