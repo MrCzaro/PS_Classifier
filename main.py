@@ -3,10 +3,17 @@ from inspect import iscoroutinefunction
 
 from monsterui.all import *
 from fasthtml.common import *
+from starlette.staticfiles import StaticFiles
 
-import sqlite3
+import sqlite3, base64
 from passwords_helper import hash_password, verify_password
 
+
+from ps_classifier import classify_image_ps, pressure_examples, no_pressure_examples
+from io import BytesIO
+from pathlib import Path
+from PIL import Image
+EXAMPLES = pressure_examples + no_pressure_examples
 ### Initialize or connect to the database
 
 DB_PATH = "users.db"
@@ -35,7 +42,8 @@ init_db()
 
 ### Application setup
 hdrs = Theme.blue.headers()
-app = FastHTML(hdrs=hdrs)
+app = FastHTML(hdrs=hdrs, static_dir="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 db = get_db()
 
 
@@ -167,12 +175,49 @@ def render(request, content):
 # --- HOME ROUTE ---
 @app.get("/")
 @login_required
-def index(request):
-    user = request.session.get("user")
+async def index(request):
+    cards = []
+    for img_path in EXAMPLES:
+        cards.append(
+            Div(
+                Img(src=f"/static/{Path(img_path).name}", cls="w-40 rounded shadow"),
+                Button("Classify", cls=ButtonT.primary,
+                       hx_post="/classify",
+                       hx_target="#result",
+                       hx_vals={"img_path": img_path}
+            ),
+            cls="flex flex-col items-center m-3"
+        )
+    )
+    
 
-    content = Card(
-        CardHeader(B(f"Hello, {user}!")),
-        CardBody("You are now logged in and can access the classification tools."),
+    content = Div(
+        H2("Pressure Sore Examples", cls="text-2xl font-bold mb-4"),
+        Div(*cards, cls="flex flex-wrap gap-4 justify-center"),
+        Div(id="result", cls="mt-10"),
+        cls="p-6"
+    )
+
+    return render(request, content)
+
+@app.post("/classify")
+@login_required
+async def classify(request):
+    data = await request.form()
+    img_path = data.get("img_path")
+
+    final_image, message = classify_image_ps(img_path)
+
+    # Convert PIL to base64 to display in HTML
+    buffer = BytesIO()
+    final_image.save(buffer, format="JPEG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    img_src = f"data:image/jpeg;base64,{encoded}"
+
+    content = Div(
+        Img(src=img_src, cls="max-w-md rounded-lg shadow-lg"),
+        P(message, cls="mt-3 font-semibold text-lg"),
+        id="result"
     )
 
     return render(request, content)

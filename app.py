@@ -9,7 +9,7 @@ from sqlalchemy import Column, Integer, String, select
 from fasthtml.common import *
 from monsterui.all import * 
 
-from predictions import * 
+from ps_classifier import * 
 
 
 DATABASE_URL = "sqlite+aiosqlite:///./users.db"

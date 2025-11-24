@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
 from pathlib import Path
 
 def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_type="linear"):
+    # Select architecture
     model = {
         "EfficientNet_B0": models.efficientnet_b0,
         "EfficientNet_B1" : models.efficientnet_b1,
@@ -27,6 +28,7 @@ def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_ty
         "ConvNeXt_Tiny" : models.convnext_tiny
     }[model_name](weights=None)
 
+    # Extract in_features based on model type
     if model_name.startswith("ViT"):
         in_features = model.heads.head.in_features
     elif model_name.startswith("Max"):
@@ -40,6 +42,7 @@ def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_ty
     else: # EfficientNet
         in_features = model.classifier[1].in_features
 
+    # Build head
     if head_type == "linear":
         head = nn.Sequential(nn.Dropout(dropout), nn.Linear(in_features, num_classes))
     elif head_type == "mlp":
@@ -50,7 +53,7 @@ def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_ty
             nn.Dropout(dropout),
             nn.Linear(in_features // 2, num_classes)
         )
-
+    # Assigne head back to model 
     if model_name.startswith("ViT"):
         model.heads.head = head
     elif model_name.startswith("Max"):
@@ -63,20 +66,27 @@ def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_ty
         model.fc = head
     else: # EfficientNet
         model.classifier = head
-
+    # Load weights 
     trained_weights_dict = torch.load(path_to_weights,  map_location=torch.device('cpu'))
     new_state_dict = {k: v for k, v in trained_weights_dict.items() if k in model.state_dict()}
     model.load_state_dict(new_state_dict)
 
-
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
     return model
 
 def ensemble_predict(models, img, labels, binary=False):
-    """Runs ensemble prediction over a list of PyTorch Vision models."""
+    """
+    Runs ensemble prediction over a list of PyTorch Vision models.
+    Assumes models are already in .eval() model and have requires_grad=False
+    """
+
     all_probs = []
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
     IMG_SIZE = 224
+    
     # Define and apply transformations for PyTorch models
     picture_transforms = A.Compose([
                 A.Resize(IMG_SIZE, IMG_SIZE),
@@ -89,7 +99,6 @@ def ensemble_predict(models, img, labels, binary=False):
     img_transformed = picture_transforms(image=image_np)["image"]
 
     for model in models:
-        model.eval()
         with torch.inference_mode():
                 outputs = model(img_transformed.unsqueeze(0)).squeeze()
                 if binary == True:
@@ -154,6 +163,7 @@ def annotate_image(img, label, confidence, font_size=20):
     draw.text((x,y + font_size + 5), text_confidence, font=font, fill="white")
     
     return img
+
 def classify_image_ps(img_input):
     """
     1) Run binary classifier
@@ -222,7 +232,7 @@ multiclass_labels = ["stage I", "stage II", "stage III", "stage IV"]
 
 # Examples preperation
 BASE_DIR = Path(__file__).resolve().parent
-EXAMPLES_DIR = BASE_DIR / "pic/examples"
+EXAMPLES_DIR = BASE_DIR / "static/"
 pressure_examples = [
     os.path.join(EXAMPLES_DIR, f"pressure_{i}.jpg") for i in range(1, 4)
 ]
