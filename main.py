@@ -176,25 +176,70 @@ def render(request, content):
 @app.get("/")
 @login_required
 async def index(request):
-    cards = []
-    for img_path in EXAMPLES:
-        cards.append(
-            Div(
-                Img(src=f"/static/{Path(img_path).name}", cls="w-40 rounded shadow"),
-                Button("Classify", cls=ButtonT.primary,
-                       hx_post="/classify",
-                       hx_target="#result",
-                       hx_vals={"img_path": img_path}
-            ),
-            cls="flex flex-col items-center m-3"
-        )
-    )
     
+    # Example Cards
+    example_cards = []
+    for img_path in EXAMPLES:
+        name = Path(img_path).name
+        example_cards.append(
+            Div(
+                Img(
+                    src=f"/static/{name}",
+                    cls="w-40 h-40 object-cover rounded-lg shadow"
+                ),
+                Button(
+                    "Classify",
+                    cls=ButtonT.primary + " mt-2 w-full",
+                    hx_post="/classify",
+                    hx_target="#prediction-output",
+                    hx_vals={"img_path": img_path}
+                ),
+                cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white"
+            )
+        )
+
+    example_grid = Div(
+        *example_cards,
+        cls="grid grid-cols-2 md:grid-cols-3 gap-4 justify-center"
+    )
+
+    # Upload Area and Prediction Area
+    upload_area = Card(
+        CardHeader(H3("Upload Image")),
+        CardBody(
+        P("Drag & drop or select an image to classify."),
+        Input(type="file", name="file", id="userfile",
+              accept="image/*",
+              cls="mt-3 p-2 border rounded w=full",
+              hx_post="/classify",
+              hx_target="#prediction-output",
+              hx_encoding="multipart/form-data"),
+        ),
+        cls="w-full"
+    )
+
+    prediction_area = Card(
+        CardHeader(
+            H3("Prediction Result")),
+        CardBody(
+            Div("No image classified yet.",
+                id="prediction-output",
+                cls="text-gray-600"),
+        ),
+        cls="w-full"
+    )
+
+    two_column_layout = Div(
+        upload_area,
+        prediction_area,
+        cls="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10"
+    )
 
     content = Div(
-        H2("Pressure Sore Examples", cls="text-2xl font-bold mb-4"),
-        Div(*cards, cls="flex flex-wrap gap-4 justify-center"),
-        Div(id="result", cls="mt-10"),
+        H2("Pressue Sore Classifier", cls="text-3xl font-bold mb-6 text-center"),
+        H3("Example Images", cls="text-xl font-semibold mb-3"),
+        example_grid,
+        two_column_layout,
         cls="p-6"
     )
 
@@ -221,6 +266,35 @@ async def classify(request):
     )
 
     return render(request, content)
+
+@app.post("/upload-classify")
+@login_required
+async def upload_classify(request):
+    form = await request.form()
+
+    file = form.get("file")
+    if not file:
+        return Div("No file uploaded.", cls="text-red-600", id="prediction-output")
+    
+    # Read into PIL
+    img_bytes = await file.read()
+    img = Image.open(BytesIO(img_bytes)).convert("RGB")
+
+    tmp_path = "static/_tmp_upload.jpg"
+    img.save(tmp_path)
+
+    final_image, message = classify_image_ps(tmp_path)
+
+    # Convert to Base64 for display
+    buf = BytesIO()
+    final_image.save(buf, format="JPEG")
+    encoded = base64.b64encode(buf.getvalue()).decode()
+
+    return Div(
+        Img(src=f"data:image/jpeg;base64,{encoded}", cls="max-w-md rounded-lg shadow-lg"),
+        P(message, cls="mt-3 font-semibold text-lg"),
+        id="prediction-output"
+    )
 
 # --- LOGIN ROUTES ---
 

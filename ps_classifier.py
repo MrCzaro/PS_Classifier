@@ -178,10 +178,10 @@ def classify_image_ps(img_input):
             img = Image.fromarray(img_input.astype(np.uint8)).convert("RGB")
         else:
             print("Invalid input type. Please provide a path (string) or a NumPy array.")
-            return None
+            return None, "Invalid image path"
     except (UnidentifiedImageError, FileNotFoundError) as e:
         print(f"Error opening image: {e}.\n Please provide a valide image path or array.")
-        return None
+        return None, "Image could not be loaded"
 
     # Binary ensemble
     b_idx, b_label, b_conf = ensemble_predict(binary_models, img, binary_labels, binary=True)
