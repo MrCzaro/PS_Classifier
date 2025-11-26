@@ -124,6 +124,11 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
 
 
 
+@app.get("/favicon.ico")
+def favicon(request):
+    # redirect the browser to the static file
+    return Redirect("/static/favicon.ico") 
+
 def layout(request, content):
     """
     Layout wrapper: Top navbar + page content + sticky footer.
