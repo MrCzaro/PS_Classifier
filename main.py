@@ -13,6 +13,8 @@ from ps_classifier import classify_image_ps, pressure_examples, no_pressure_exam
 from io import BytesIO
 from pathlib import Path
 from PIL import Image
+from urllib.parse import quote_plus, unquote_plus
+
 EXAMPLES = pressure_examples + no_pressure_examples
 ### Initialize or connect to the database
 
@@ -124,7 +126,8 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
 
 def layout(request, content):
     """
-    Centered container layout with styled navbar.
+    Layout wrapper: Top navbar + page content + sticky footer.
+    Centers content and prevents footer overlap.
     """
     user = request.session.get("user")
 
@@ -133,9 +136,9 @@ def layout(request, content):
 
     # Links / buttons
     links = [
-        A(Button("Login", cls=ButtonT.primary), hx_get="/login", hx_target="#content") if not user else None,
-        A(Button("Signup", cls=ButtonT.secondary,), hx_get="/signup", hx_target="#content") if not user else None,
-        A(Button("Logout", cls=ButtonT.secondary), hx_get="/logout") if user else None,
+        A(Button("Login", cls=ButtonT.primary + " rounded-lg"), hx_get="/login", hx_target="#content") if not user else None,
+        A(Button("Signup", cls=ButtonT.secondary + " rounded-lg"), hx_get="/signup", hx_target="#content") if not user else None,
+        A(Button("Logout", cls=ButtonT.secondary + " rounded-lg"), hx_get="/logout") if user else None,
     ]
     links = [c for c in links if c is not None]
 
@@ -152,7 +155,7 @@ def layout(request, content):
             Container(content, id="content", clsx="mt-10 max-w-lg"),
             Footer(
                     "MrCzaro © 2025 Pressure Sore AI",
-                    cls="fixed bottom-0 left-0 w-full p-4 bg-blue-600 backdrop-blur text-center text-white"
+                    cls="sticky bottom-0 left-0 w-full p-4 bg-blue-600  text-center text-white mt-auto"
                 ),
             cls="flex flex-col min-h-screen"
         ),
@@ -181,18 +184,14 @@ async def index(request):
     example_cards = []
     for img_path in EXAMPLES:
         name = Path(img_path).name
+        url_path = quote_plus(img_path)
         example_cards.append(
             Div(
-                Img(
-                    src=f"/static/{name}",
-                    cls="w-40 h-40 object-cover rounded-lg shadow"
-                ),
-                Button(
-                    "Classify",
-                    cls=ButtonT.primary + " mt-2 w-full",
-                    hx_post="/classify",
+                Img(src=f"/static/{name}",cls="w-40 h-40 object-cover rounded-lg shadow"),
+                A(Button("Classify",cls=ButtonT.primary + " mt-2 w-full rounded-md "),
+                    hx_get=f"/classify?img_path={url_path}",
                     hx_target="#prediction-output",
-                    hx_vals={"img_path": img_path}
+                    hx_swap="outerHTML",
                 ),
                 cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white"
             )
@@ -211,8 +210,9 @@ async def index(request):
         Input(type="file", name="file", id="userfile",
               accept="image/*",
               cls="mt-3 p-2 border rounded w=full",
-              hx_post="/classify",
+              hx_post="/upload-classify",
               hx_target="#prediction-output",
+              hx_swap="outerHTML",
               hx_encoding="multipart/form-data"),
         ),
         cls="w-full"
@@ -222,18 +222,12 @@ async def index(request):
         CardHeader(
             H3("Prediction Result")),
         CardBody(
-            Div("No image classified yet.",
-                id="prediction-output",
-                cls="text-gray-600"),
+            Div("No image classified yet.", id="prediction-output", cls="text-gray-600"),
         ),
         cls="w-full"
     )
 
-    two_column_layout = Div(
-        upload_area,
-        prediction_area,
-        cls="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10"
-    )
+    two_column_layout = Div(upload_area, prediction_area, cls="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10")
 
     content = Div(
         H2("Pressue Sore Classifier", cls="text-3xl font-bold mb-6 text-center"),
@@ -245,15 +239,39 @@ async def index(request):
 
     return render(request, content)
 
-@app.post("/classify")
+# --- CLASSIFICATION ROUTE ---
+@app.get("/classify")
 @login_required
 async def classify(request):
-    data = await request.form()
-    img_path = data.get("img_path")
+
+    img_path =  request.query_params.get("img_path")
+
+    # Debug logging (temporary)
+    print("DEBUG /classify (GET) img_path:", img_path)
+
+    if not img_path:
+        return Div(P("No image specified. Click an example or upload one.", cls="text-red-600"),
+                   id="prediction-output")
+
+    # URL-decoding if you used quote_plus in hx_get
+    img_path = unquote_plus(img_path)
+    p = Path(img_path)
+    if not p.exists():
+        candidate = Path("static") / p.name
+        if candidate.exists():
+            img_path = str(candidate)
+        else:
+            return Div(P(f"Image not found: {p.name}", cls="text-red-600"), id="prediction-output")
 
     final_image, message = classify_image_ps(img_path)
 
-    # Convert PIL to base64 to display in HTML
+    if final_image is None:
+        return Div(
+            P("Classification failed.", cls="text-red-600 font-semibold"),
+            P(message, cls="text-gray-700"),
+            id="prediction-output"
+        )
+
     buffer = BytesIO()
     final_image.save(buffer, format="JPEG")
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -262,10 +280,10 @@ async def classify(request):
     content = Div(
         Img(src=img_src, cls="max-w-md rounded-lg shadow-lg"),
         P(message, cls="mt-3 font-semibold text-lg"),
-        id="result"
+        id="prediction-output"
     )
 
-    return render(request, content)
+    return content
 
 @app.post("/upload-classify")
 @login_required
@@ -279,11 +297,17 @@ async def upload_classify(request):
     # Read into PIL
     img_bytes = await file.read()
     img = Image.open(BytesIO(img_bytes)).convert("RGB")
-
     tmp_path = "static/_tmp_upload.jpg"
     img.save(tmp_path)
 
     final_image, message = classify_image_ps(tmp_path)
+
+    if final_image is None:
+        return Div(
+            P("Classification failed.", cls="text-read-600 font-semibold"),
+            P(message, cls="text-gray-700"),
+            id="prediction-output"
+        )
 
     # Convert to Base64 for display
     buf = BytesIO()

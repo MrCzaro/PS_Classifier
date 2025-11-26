@@ -116,7 +116,7 @@ def ensemble_predict(models, img, labels, binary=False):
     final_label = labels[idx]
     return idx, final_label, conf
 
-def annotate_image(img, label, confidence, font_size=20):
+def annotate_image(img, label, confidence, font_size=30):
     """
     Anotates an image with predicted label and confidence.
     
@@ -126,26 +126,35 @@ def annotate_image(img, label, confidence, font_size=20):
         confidence (float) : Model confidence value (0-1 or %).
         font_size (int) : Font size for annotation text.
 
+    Supports:
+        - PIL.Image
+        - image path (string)
+        - numpy array
+
     Returns:
-        PIL.Image: Annotaged image
+        PIL.Image.Image (annotated)
 
     """
     print(f"Input type to annotate_image: {type(img)}")
+    
     try:
-        # Open an image
-        if isinstance(img, str):
-            img = Image.open(img).convert("RGB")
+        if isinstance(img, Image.Image):
+            annotated = img.copy() 
+
+        elif isinstance(img, str):
+            annotated = Image.open(img).convert("RGB")
+    
         elif isinstance(img, np.ndarray):
-            img = Image.fromarray(img.astype(np.uint8)).convert("RGB") 
+            annotated = Image.fromarray(img.astype(np.uint8)).convert("RGB") 
         else:
             print("Invalid input type. Please provide a path (string) or a NumPy array.")
             return None
-    except(UnidentifiedImageError, FileNotFoundError) as e:
+    except Exception as e:
         print(f"Error opening image: {e}.\n Please provide a valide image path or array.")
         return None
 
     # Create drawing object
-    draw = ImageDraw.Draw(img)
+    draw = ImageDraw.Draw(annotated)
     
     # Load default font (or specify TTF ) 
     try:
@@ -154,15 +163,15 @@ def annotate_image(img, label, confidence, font_size=20):
         font = ImageFont.load_default()
 
     # Define text
-    text_label = f"Predicted label: {label}"
+    text_label = f"Predicted: {label.replace('_', ' ')}"
     text_confidence = f"Confidence: {confidence:.2f}"
 
     # Position text at top-left corner
     x,y = 10, 10
-    draw.text((x,y), text_label, font=font, fill="white")
-    draw.text((x,y + font_size + 5), text_confidence, font=font, fill="white")
+    draw.text((x,y), text_label, font=font, fill="yellow")
+    draw.text((x,y + font_size + 5), text_confidence, font=font, fill="yellow")
     
-    return img
+    return annotated
 
 def classify_image_ps(img_input):
     """
@@ -202,7 +211,7 @@ def classify_image_ps(img_input):
             message = f"✅ Pressure sore detected\nStage: {s_label} \n({s_conf:.2f} confidence)"
             final_image = annotate_image(img=img_input, label=s_label, confidence=s_conf, font_size=20)
         except:
-            final_image = Image.open("pic/error_picture.jpg").convert("RGB")
+            final_image = Image.open("static/error_picture.jpg").convert("RGB")
             message = "Error during stage classification. Please check the model or input image."
     return final_image, message
 
