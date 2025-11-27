@@ -132,14 +132,12 @@ def favicon(request):
 def layout(request, content):
     """
     Layout wrapper: Top navbar + page content + sticky footer.
-    Centers content and prevents footer overlap.
+    Centers content and prevents footer overlap by giving the content area flex:1.
     """
     user = request.session.get("user")
 
-    # Logo
     logo = A("Pressure Sore AI", href="/", cls="text-xl font-bold text-white tracking-tight")
 
-    # Links / buttons
     links = [
         A(Button("Login", cls=ButtonT.primary + " rounded-lg"), hx_get="/login", hx_target="#content") if not user else None,
         A(Button("Signup", cls=ButtonT.secondary + " rounded-lg"), hx_get="/signup", hx_target="#content") if not user else None,
@@ -147,21 +145,21 @@ def layout(request, content):
     ]
     links = [c for c in links if c is not None]
 
-    # Navbar container: flex, justify-between, bg-blu
     nav_bar = Nav(
-        Div(logo, cls="flex items-center"),         # left side
-        Div(*links, cls="flex gap-2 items-center"), # right side
+        Div(logo, cls="flex items-center"),
+        Div(*links, cls="flex gap-2 items-center"),
         cls="flex justify-between items-center bg-blue-600 px-4 py-2"
     )
 
+    # Container(content) must be allowed to grow so footer doesn't overlap: add flex-1 to it.
     return Div(
         Header(nav_bar),
         Div(
-            Container(content, id="content", clsx="mt-10 max-w-lg"),
+            Container(content, id="content", clsx="mt-10 max-w-4xl flex-1"),
             Footer(
-                    "MrCzaro © 2025 Pressure Sore AI",
-                    cls="sticky bottom-0 left-0 w-full p-4 bg-blue-600  text-center text-white mt-auto"
-                ),
+                "MrCzaro © 2025 Pressure Sore AI",
+                cls="w-full p-4 bg-blue-600 text-center text-white"
+            ),
             cls="flex flex-col min-h-screen"
         ),
         cls="min-h-screen flex flex-col"
@@ -184,58 +182,72 @@ def render(request, content):
 @app.get("/")
 @login_required
 async def index(request):
-    
-    # Example Cards
+    # Example Cards - build one card per example
     example_cards = []
     for img_path in EXAMPLES:
         name = Path(img_path).name
         url_path = quote_plus(img_path)
+
         example_cards.append(
             Div(
-                Img(src=f"/static/{name}",cls="w-40 h-40 object-cover rounded-lg shadow"),
-                A(Button("Classify",cls=ButtonT.primary + " mt-2 w-full rounded-md "),
+                Img(src=f"/static/{name}",
+                    cls="w-40 h-40 object-cover rounded-lg shadow"),
+                A(
+                    Button("Classify", cls=ButtonT.primary + " mt-2 w-full rounded-full"),
                     hx_get=f"/classify?img_path={url_path}",
                     hx_target="#prediction-output",
-                    hx_swap="outerHTML",
+                    hx_swap="outerHTML"
                 ),
-                cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white"
+                cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white flex-shrink-0"
             )
         )
-
     example_grid = Div(
-        *example_cards,
-        cls="grid grid-cols-2 md:grid-cols-3 gap-4 justify-center"
+        # Desktop grid
+        Div(*example_cards, cls="hidden md:grid md:grid-cols-3 gap-4"),
+        # Mobile horizontal scroller
+        Div(*example_cards,
+            cls="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory py-2 px-2",
+            # make cards snap nicely
+            # each card already has flex-shrink-0 so they keep width
+        ),
+        cls="w-full"
     )
 
     # Upload Area and Prediction Area
     upload_area = Card(
         CardHeader(H3("Upload Image")),
         CardBody(
-        P("Drag & drop or select an image to classify."),
-        Input(type="file", name="file", id="userfile",
-              accept="image/*",
-              cls="mt-3 p-2 border rounded w=full",
-              hx_post="/upload-classify",
-              hx_target="#prediction-output",
-              hx_swap="outerHTML",
-              hx_encoding="multipart/form-data"),
+            P("Drag & drop or select an image to classify."),
+            Form(
+                Input(type="file", name="file", id="userfile",
+                      accept="image/*",
+                      cls="mt-3 p-2 border rounded w-full",
+                      hx_post="/upload-classify",
+                      hx_target="#prediction-output",
+                      hx_swap="outerHTML",
+                      hx_encoding="multipart/form-data"),
+            ),
         ),
         cls="w-full"
     )
 
     prediction_area = Card(
-        CardHeader(
-            H3("Prediction Result")),
+        CardHeader(H3("Prediction Result")),
         CardBody(
             Div("No image classified yet.", id="prediction-output", cls="text-gray-600"),
         ),
         cls="w-full"
     )
 
-    two_column_layout = Div(upload_area, prediction_area, cls="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10")
+    # Two column layout: left narrow (upload), right flexible (prediction)
+    two_column_layout = Div(
+        Div(upload_area, cls="w-full md:w-1/3"),     # left takes 1/3 on md+
+        Div(prediction_area, cls="w-full md:w-2/3"), # right takes 2/3 on md+
+        cls="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10"
+    )
 
     content = Div(
-        H2("Pressue Sore Classifier", cls="text-3xl font-bold mb-6 text-center"),
+        H2("Pressure Sore Classifier", cls="text-3xl font-bold mb-6 text-center"),
         H3("Example Images", cls="text-xl font-semibold mb-3"),
         example_grid,
         two_column_layout,
