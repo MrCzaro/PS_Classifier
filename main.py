@@ -1,6 +1,5 @@
 from functools import wraps
 from inspect import iscoroutinefunction
-
 from monsterui.all import *
 from fasthtml.common import *
 from starlette.staticfiles import StaticFiles
@@ -151,7 +150,7 @@ def layout(request, content):
         cls="flex justify-between items-center bg-blue-600 px-4 py-2"
     )
 
-    # Container(content) must be allowed to grow so footer doesn't overlap: add flex-1 to it.
+
     return Div(
         Header(nav_bar),
         Div(
@@ -162,6 +161,7 @@ def layout(request, content):
             ),
             cls="flex flex-col min-h-screen"
         ),
+        Script(src="/static/preview.js"),
         cls="min-h-screen flex flex-col"
     )
 
@@ -217,19 +217,41 @@ async def index(request):
     upload_area = Card(
         CardHeader(H3("Upload Image")),
         CardBody(
-            P("Drag & drop or select an image to classify."),
-            Form(
-                Input(type="file", name="file", id="userfile",
-                      accept="image/*",
-                      cls="mt-3 p-2 border rounded w-full",
-                      hx_post="/upload-classify",
-                      hx_target="#prediction-output",
-                      hx_swap="outerHTML",
-                      hx_encoding="multipart/form-data"),
-            ),
+            Div(
+                # Drop Zone
+                Div(
+                    P("Drag & drop an image here", cls="text-gray-600 text-sm"),
+                    P("or click to browse", cls="text-blue-600 text-sm font-semibold"),
+                    Input(
+                        type="file", name="file", id="userfile",
+                        accept="image/*",
+                        cls="hidden",
+                        onchange="previewFile(event)"
+                    ),
+                    id="drop-zone",
+                    cls="border-2 border-dashed border-blue-400 rounded-xl p-6 text-center cursor-pointer bg-blue-50 hover:bg-blue-100 transition"
+                ),
+
+                # Preview Area
+                Div(
+                    Img(id="preview-img", cls="hidden mx-auto mt-4 max-h-64 rounded-lg shadow-md"),
+                    Button("Classify Image",
+                        cls=ButtonT.primary + " hidden mt-4 w-full rounded-md",
+                        id="upload-btn",
+                        hx_post="/upload-classify",
+                        hx_target="#prediction-output",
+                        hx_swap="outerHTML",
+                        hx_encoding="multipart/form-data",
+                        hx_include="#userfile"),
+                    cls="mt-2"
+                ),
+
+                cls="w-full"
+            )
         ),
         cls="w-full"
     )
+
 
     prediction_area = Card(
         CardHeader(H3("Prediction Result")),
