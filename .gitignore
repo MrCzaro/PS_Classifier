@@ -14,8 +14,7 @@ project_manager.py
 run_session.py
 projects/
 users.db
-instructions.json
-
+_tmp_upload.jpg
 
 models
 pic

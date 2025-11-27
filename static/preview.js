@@ -10,6 +10,8 @@ function previewFile(event) {
     }
     const objectUrl = URL.createObjectURL(file);
     img.src = objectUrl;
+    const meta = document.getElementById("preview-meta");
+    if (meta) meta.textContent = `${file.name} — ${(file.size/1024).toFixed(1)} KB`;
     img.dataset.objectUrl = objectUrl;
     img.classList.remove("hidden");
     const uploadBtn = document.getElementById("upload-btn");

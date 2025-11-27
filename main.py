@@ -82,7 +82,7 @@ def signup_card(error_message:str|None=None, prefill_email:str=""):
                            type="password", placeholder="Choose a password"),
                 LabelInput("Repeat Password", name="repeat_password", id="repeat_password",
                            type="password", placeholder="Repeat password"),
-                Div(Button("Sign Up", cls=ButtonT.primary, type="submit"), cls="mt-4"),
+                Div(Button("Sign Up", cls=ButtonT.primary + " rounded-lg py-2 px-4 md:py-3 md:px-5 text-sm md:text-base", type="submit"), cls="mt-4"),
                 action="/signup",
                 method="post",
                 hx_post="/signup",
@@ -109,7 +109,7 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
                            value=prefill_email),
                 LabelInput("Password", name="password", id="password",
                            type="password", placeholder="Password"),
-                Div(Button("Login", cls=ButtonT.primary, type="submit"), cls="mt-4"),
+                Div(Button("Login", cls=ButtonT.primary + " rounded-lg py-2 px-4 md:py-3 md:px-5 text-sm md:text-base", type="submit"), cls="mt-4"),
                 action="/login",
                 method="post",
                 hx_post="/login",
@@ -138,9 +138,9 @@ def layout(request, content):
     logo = A("Pressure Sore AI", href="/", cls="text-xl font-bold text-white tracking-tight")
 
     links = [
-        A(Button("Login", cls=ButtonT.primary + " rounded-lg"), hx_get="/login", hx_target="#content") if not user else None,
-        A(Button("Signup", cls=ButtonT.secondary + " rounded-lg"), hx_get="/signup", hx_target="#content") if not user else None,
-        A(Button("Logout", cls=ButtonT.secondary + " rounded-lg"), hx_get="/logout") if user else None,
+        A(Button("Login", cls=ButtonT.primary + " rounded-lg py-2 px-4 md:py-3 md:px-5 text-sm md:text-base"), hx_get="/login", hx_target="#content") if not user else None,
+        A(Button("Signup", cls=ButtonT.secondary + " rounded-lg py-2 px-4 md:py-3 md:px-5 text-sm md:text-base"), hx_get="/signup", hx_target="#content") if not user else None,
+        A(Button("Logout", cls=ButtonT.secondary + " rounded-lg py-2 px-4 md:py-3 md:px-5 text-sm md:text-base"), hx_get="/logout") if user else None,
     ]
     links = [c for c in links if c is not None]
 
@@ -154,12 +154,12 @@ def layout(request, content):
     return Div(
         Header(nav_bar),
         Div(
-            Container(content, id="content", clsx="mt-10 max-w-4xl flex-1"),
-            Footer(
-                "MrCzaro © 2025 Pressure Sore AI",
-                cls="w-full p-4 bg-blue-600 text-center text-white"
-            ),
-            cls="flex flex-col min-h-screen"
+            Container(content, id="content", clsx="mt-10 max-w-6xl w-full"), 
+            cls="flex-1 w-full"
+        ),
+        Footer(
+            "MrCzaro © 2025 Pressure Sore AI",
+            cls="w-full p-4 bg-blue-600 text-center text-white"
         ),
         Script(src="/static/preview.js"),
         cls="min-h-screen flex flex-col"
@@ -191,24 +191,25 @@ async def index(request):
         example_cards.append(
             Div(
                 Img(src=f"/static/{name}",
-                    cls="w-40 h-40 object-cover rounded-lg shadow"),
+                    cls="w-44 h-44 object-cover rounded-lg shadow"),
                 A(
-                    Button("Classify", cls=ButtonT.primary + " mt-2 w-full rounded-full"),
+                    Button(
+                        "Classify",
+                        cls=ButtonT.primary + " mt-2 w-full rounded-md py-3 px-5 md:py-3 md:px-6"
+                    ),
                     hx_get=f"/classify?img_path={url_path}",
                     hx_target="#prediction-output",
                     hx_swap="outerHTML"
                 ),
-                cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white flex-shrink-0"
+                cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white flex-shrink-0 w-48 snap-center"
             )
         )
+
+    # Make a single-row scroller for the examples (no wrapping on large screens)
     example_grid = Div(
-        # Desktop grid
-        Div(*example_cards, cls="hidden md:grid md:grid-cols-3 gap-4"),
-        # Mobile horizontal scroller
-        Div(*example_cards,
-            cls="md:hidden flex gap-4 overflow-x-auto snap-x snap-mandatory py-2 px-2",
-            # make cards snap nicely
-            # each card already has flex-shrink-0 so they keep width
+        Div(
+            *example_cards,
+            cls="flex gap-4 items-start overflow-x-auto snap-x snap-mandatory py-2 px-2",
         ),
         cls="w-full"
     )
@@ -229,20 +230,22 @@ async def index(request):
                         onchange="previewFile(event)"
                     ),
                     id="drop-zone",
-                    cls="border-2 border-dashed border-blue-400 rounded-xl p-6 text-center cursor-pointer bg-blue-50 hover:bg-blue-100 transition"
+                    cls="border-2 border-dashed border-blue-400 rounded-xl p-6 text-center cursor-pointer bg-white hover:bg-blue-50 transition"
                 ),
-
-                # Preview Area
                 Div(
                     Img(id="preview-img", cls="hidden mx-auto mt-4 max-h-64 rounded-lg shadow-md"),
-                    Button("Classify Image",
-                        cls=ButtonT.primary + " hidden mt-4 w-full rounded-md",
+                    # metadata / filename spot (JS can populate this)
+                    Div(id="preview-meta", cls="text-sm text-gray-600 mt-2 text-center"),
+                    Button(
+                        "Classify Image",
+                        cls=ButtonT.primary + " hidden mt-4 w-full rounded-md py-3 px-5",
                         id="upload-btn",
                         hx_post="/upload-classify",
                         hx_target="#prediction-output",
                         hx_swap="outerHTML",
                         hx_encoding="multipart/form-data",
-                        hx_include="#userfile"),
+                        hx_include="#userfile"
+                    ),
                     cls="mt-2"
                 ),
 
@@ -252,20 +255,18 @@ async def index(request):
         cls="w-full"
     )
 
-
     prediction_area = Card(
         CardHeader(H3("Prediction Result")),
         CardBody(
-            Div("No image classified yet.", id="prediction-output", cls="text-gray-600"),
+            Div("No image classified yet.", id="prediction-output", cls="text-gray-600 text-left"),
         ),
         cls="w-full"
     )
 
-    # Two column layout: left narrow (upload), right flexible (prediction)
     two_column_layout = Div(
-        Div(upload_area, cls="w-full md:w-1/3"),     # left takes 1/3 on md+
-        Div(prediction_area, cls="w-full md:w-2/3"), # right takes 2/3 on md+
-        cls="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10"
+        Div(upload_area, cls="col-span-12 md:col-span-4"),
+        Div(prediction_area, cls="col-span-12 md:col-span-8"),
+        cls="grid grid-cols-12 gap-6 mt-10 items-start"
     )
 
     content = Div(
@@ -277,6 +278,7 @@ async def index(request):
     )
 
     return render(request, content)
+
 
 # --- CLASSIFICATION ROUTE ---
 @app.get("/classify")
@@ -317,7 +319,7 @@ async def classify(request):
     img_src = f"data:image/jpeg;base64,{encoded}"
 
     content = Div(
-        Img(src=img_src, cls="max-w-md rounded-lg shadow-lg"),
+        Img(src=img_src, cls="block max-w-full md:max-w-md rounded-lg shadow-lg"),
         P(message, cls="mt-3 font-semibold text-lg"),
         id="prediction-output"
     )
@@ -354,7 +356,7 @@ async def upload_classify(request):
     encoded = base64.b64encode(buf.getvalue()).decode()
 
     return Div(
-        Img(src=f"data:image/jpeg;base64,{encoded}", cls="max-w-md rounded-lg shadow-lg"),
+        Img(src=f"data:image/jpeg;base64,{encoded}", cls="block max-w-full md:max-w-md rounded-lg shadow-lg"),
         P(message, cls="mt-3 font-semibold text-lg"),
         id="prediction-output"
     )
@@ -383,6 +385,11 @@ async def post_login(request):
         return login_card("Invalid email or password.", prefill_email=email)
             
     request.session["user"] = email
+
+    # if request came from HTMX, redirect to client-side
+    if request.headers.get("HX-Request"):
+        return Response(status_code=200, headers={"HX-Redirect": "/"})
+    
     return Redirect("/")
 
 
