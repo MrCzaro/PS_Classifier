@@ -388,7 +388,10 @@ async def post_login(request):
 
     # if request came from HTMX, redirect to client-side
     if request.headers.get("HX-Request"):
-        return Response(status_code=200, headers={"HX-Redirect": "/"})
+        resp = Response(status_code = 200, content="")
+        resp.headers["HX-Redirect"] = "/"
+        return resp
+
     
     return Redirect("/")
 
