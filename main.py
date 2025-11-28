@@ -15,7 +15,6 @@ from PIL import Image
 from urllib.parse import quote_plus, unquote_plus
 
 EXAMPLES = pressure_examples + no_pressure_examples
-### Initialize or connect to the database
 
 DB_PATH = "users.db"
 
@@ -39,7 +38,6 @@ def init_db():
 
 # Initialize DB on startup
 init_db()
-
 
 ### Application setup
 hdrs = Theme.blue.headers()
@@ -87,7 +85,7 @@ def signup_card(error_message:str|None=None, prefill_email:str=""):
                 method="post",
                 hx_post="/signup",
                 hx_target="#content",
-                hx_swap="outerHTML"
+                hx_swap="innerHTML"
             )
         ),
         CardFooter("Already have an account? ", A(B("Login"), href="#", hx_get="/login", hx_target="#content"))
@@ -114,14 +112,12 @@ def login_card(error_message:str|None = None, prefill_email:str=""):
                 method="post",
                 hx_post="/login",
                 hx_target="#content",
-                hx_swap="outerHTML"
+                hx_swap="innerHTML"
             )
         ),
         CardFooter("Don't have an account? ", A(B("Sign up"), href="#", hx_get="/signup", hx_target="#content"))
     )
     
-
-
 
 @app.get("/favicon.ico")
 def favicon(request):
@@ -150,7 +146,6 @@ def layout(request, content):
         cls="flex justify-between items-center bg-blue-600 px-4 py-2"
     )
 
-
     return Div(
         Header(nav_bar),
         Div(
@@ -161,6 +156,7 @@ def layout(request, content):
             "MrCzaro © 2025 Pressure Sore AI",
             cls="w-full p-4 bg-blue-600 text-center text-white"
         ),
+        Script("document.title = 'Pressure Sore AI';"),
         Script(src="/static/preview.js"),
         cls="min-h-screen flex flex-col"
     )
@@ -176,8 +172,7 @@ def render(request, content):
         return layout(request, content)
 
 
-### Routers
-
+### Routers ###
 # --- HOME ROUTE ---
 @app.get("/")
 @login_required
@@ -279,7 +274,6 @@ async def index(request):
 
     return render(request, content)
 
-
 # --- CLASSIFICATION ROUTE ---
 @app.get("/classify")
 @login_required
@@ -303,16 +297,13 @@ async def classify(request):
             img_path = str(candidate)
         else:
             return Div(P(f"Image not found: {p.name}", cls="text-red-600"), id="prediction-output")
-
     final_image, message = classify_image_ps(img_path)
-
     if final_image is None:
         return Div(
             P("Classification failed.", cls="text-red-600 font-semibold"),
             P(message, cls="text-gray-700"),
             id="prediction-output"
         )
-
     buffer = BytesIO()
     final_image.save(buffer, format="JPEG")
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -323,18 +314,15 @@ async def classify(request):
         P(message, cls="mt-3 font-semibold text-lg"),
         id="prediction-output"
     )
-
     return content
 
 @app.post("/upload-classify")
 @login_required
 async def upload_classify(request):
     form = await request.form()
-
     file = form.get("file")
     if not file:
         return Div("No file uploaded.", cls="text-red-600", id="prediction-output")
-    
     # Read into PIL
     img_bytes = await file.read()
     img = Image.open(BytesIO(img_bytes)).convert("RGB")
@@ -362,7 +350,6 @@ async def upload_classify(request):
     )
 
 # --- LOGIN ROUTES ---
-
 @app.get("/login")
 def get_login(request):
     return render(request, login_card())
@@ -381,23 +368,14 @@ async def post_login(request):
     cur = db.execute("SELECT * FROM users WHERE email = ?", (email,))
     user = cur.fetchone()
     db.close()
+
     if not user or not verify_password(password, user["password_hash"]):
         return login_card("Invalid email or password.", prefill_email=email)
             
     request.session["user"] = email
-
-    # if request came from HTMX, redirect to client-side
-    if request.headers.get("HX-Request"):
-        resp = Response(status_code = 200, content="")
-        resp.headers["HX-Redirect"] = "/"
-        return resp
-
-    
     return Redirect("/")
 
-
 # --- SIGNUP ROUTES ---
-
 @app.get("/signup")
 def signup(request):
     return render(request, signup_card())
@@ -407,9 +385,9 @@ async def post_signup(request):
     form = await request.form()
     email = form.get("email", "").strip().lower()
     password = form.get("password", "").strip()
-    repreat_password = form.get("repeat_password", "").strip()
+    repeat_password = form.get("repeat_password", "").strip()
 
-    if password != repreat_password:
+    if password != repeat_password:
         return signup_card("Passwords do not match.", prefill_email=email)
     
     if not email or not password:
@@ -422,24 +400,19 @@ async def post_signup(request):
         db.close()
         return signup_card("User already exists. Please login.", prefill_email=email)
     
-    
-    
     # Save user into DB
     hashed = hash_password(password)
     db.execute("INSERT INTO users (email, password_hash) VALUES (?, ?)", (email, hashed))
     db.commit()
     db.close()
-    
     request.session["user"] = email
-    
     return Redirect("/")
 
 # --- LOGOUT ROUTE ---
-
 @app.get("/logout")
 def logout(request):
     request.session.clear()
     return Redirect("/")
 
-#if __name__ == "__main__":
+
 serve()
