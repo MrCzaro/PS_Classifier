@@ -282,7 +282,7 @@ async def classify(request):
     img_path =  request.query_params.get("img_path")
 
     # Debug logging (temporary)
-    print("DEBUG /classify (GET) img_path:", img_path)
+    # print("DEBUG /classify (GET) img_path:", img_path)
 
     if not img_path:
         return Div(P("No image specified. Click an example or upload one.", cls="text-red-600"),

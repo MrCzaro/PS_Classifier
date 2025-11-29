@@ -135,7 +135,7 @@ def annotate_image(img, label, confidence, font_size=30):
         PIL.Image.Image (annotated)
 
     """
-    print(f"Input type to annotate_image: {type(img)}")
+    # print(f"Input type to annotate_image: {type(img)}")
     
     try:
         if isinstance(img, Image.Image):
@@ -147,10 +147,10 @@ def annotate_image(img, label, confidence, font_size=30):
         elif isinstance(img, np.ndarray):
             annotated = Image.fromarray(img.astype(np.uint8)).convert("RGB") 
         else:
-            print("Invalid input type. Please provide a path (string) or a NumPy array.")
+           # print("Invalid input type. Please provide a path (string) or a NumPy array.")
             return None
     except Exception as e:
-        print(f"Error opening image: {e}.\n Please provide a valide image path or array.")
+        # print(f"Error opening image: {e}.\n Please provide a valide image path or array.")
         return None
 
     # Create drawing object
@@ -194,20 +194,20 @@ def classify_image_ps(img_input):
 
     # Binary ensemble
     b_idx, b_label, b_conf = ensemble_predict(binary_models, img, binary_labels, binary=True)
-    print(f"DEBUG Binary Ensemble:\n1. b_idx :  {b_idx}\n2. b_label: {b_label}\n3. b_conf: {b_conf}.")
+    # print(f"DEBUG Binary Ensemble:\n1. b_idx :  {b_idx}\n2. b_label: {b_label}\n3. b_conf: {b_conf}.")
 
     # Decide pressure sore
     is_pressure = ("pressure" in b_label and not b_label.startswith("not"))
-    print(f"IS pressure sore? {is_pressure}")
+    # print(f"IS pressure sore? {is_pressure}")
     if not is_pressure:
         message = f"No pressure sore detected ({b_conf:.2f} confidence) -- stage model skipped"
         final_image = annotate_image(img=img_input, label=b_label, confidence=b_conf, font_size=20)
     else:
-        print("Running stage model...")
+        # print("Running stage model...")
         # Stage ensemble 
         try:
             s_idx, s_label, s_conf = ensemble_predict(stage_models, img, multiclass_labels, binary=False)
-            print(f"DEBUG Stage Ensemble:\n1. s_idx: {s_idx}\n2. s_label: {s_label}\n3. s_conf: {s_conf}.")
+            #print(f"DEBUG Stage Ensemble:\n1. s_idx: {s_idx}\n2. s_label: {s_label}\n3. s_conf: {s_conf}.")
             message = f"✅ Pressure sore detected\nStage: {s_label} \n({s_conf:.2f} confidence)"
             final_image = annotate_image(img=img_input, label=s_label, confidence=s_conf, font_size=20)
         except:
