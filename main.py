@@ -7,7 +7,7 @@ from urllib.parse import quote_plus, unquote_plus
 
 from fasthtml.common import *
 from monsterui.all import *
-#from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse
 
 from components  import *
 from passwords_helper import hash_password, verify_password
@@ -63,7 +63,8 @@ before = Beforeware(
 
 ### App setup
 hdrs = Theme.blue.headers()
-app, rt = fast_app(hdrs=hdrs, static_path="static", before=before)
+app, rt = fast_app(hdrs=hdrs, static_path=".", before=before)
+
 
 
 ### Routers ###
@@ -167,7 +168,7 @@ async def index(req, sess):
 
 # --- CLASSIFICATION ROUTE ---
 @rt("/classify")
-async def classify(req, image_path: str):
+async def classify(req, img_path: str):
     """Load a selected example image, run the classifier, and return the prediction fragment."""
 
     if not img_path:
@@ -218,7 +219,7 @@ async def upload_classify(file: UploadFile):
 
     if final_image is None:
         return Div(
-            P("Classification failed.", cls="text-read-600 font-semibold"),
+            P("Classification failed.", cls="text-red-600 font-semibold"),
             P(message, cls="text-gray-700"),
             id="prediction-output"
         )
@@ -238,14 +239,14 @@ async def upload_classify(file: UploadFile):
 
 
 @rt("/login")
-def login(req, sess, form: LoginForm | None = None):
+def login(req, sess, form: LoginForm = None):
     """Serve the login form on Get. Validate credentials and start the session on POST."""
-    if req.method == "GET" or form is None:
+    if req.method == "GET":
         return render(req, login_card())
     
 
-    email = form.get("email", "").strip().lower()
-    password = form.get("password", "").strip()
+    email = form.email or ""
+    password = form.password or ""
     
     if not email or not password:
         return login_card("All fields are required.", prefill_email=email)
@@ -264,14 +265,14 @@ def login(req, sess, form: LoginForm | None = None):
 
 # --- SIGNUP ROUTES ---
 @rt("/signup")
-def signup(req, sess, form: SignupForm | None = None):
+def signup(req, sess, form: SignupForm = None):
     """Serve the signup form on GET. Create a user record and log in on POST."""
-    if req.method == "GET" or form is None:
+    if req.method == "GET":
         return render(req, signup_card())
 
-    email = form.get("email", "").strip().lower()
-    password = form.get("password", "").strip()
-    repeat_password = form.get("repeat_password", "").strip()
+    email = form.email or ""
+    password = form.password or ""
+    repeat_password = form.repeat_password or ""
 
     if password != repeat_password:
         return signup_card("Passwords do not match.", prefill_email=email)

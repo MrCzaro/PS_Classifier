@@ -13,7 +13,7 @@ class LoginForm:
 class SignupForm:
     email: str = ""
     password: str = ""
-    repreat_password: str = ""
+    repeat_password: str = ""
 
 
 def signup_card(error_message:str|None=None, prefill_email:str=""):
