@@ -19,9 +19,10 @@ Deep learning web application for automated pressure sore (pressure ulcer) detec
     <td width="100%">
       <img src="docs/screenshots/dashboard.png" alt="Main Dashboard">
       <p align="center"><b>Interactive Dashboard</b><br/>Upload images or select from examples</p>
-    </td>
-    
+    </td>   
   </tr>
+</table>
+<table>
   <tr>
     <td width="50%">
       <img src="docs/screenshots/demo_ss_upload_2.png" alt="">
