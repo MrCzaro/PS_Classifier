@@ -16,22 +16,19 @@ Deep learning web application for automated pressure sore (pressure ulcer) detec
 ### User Interface
 <table>
   <tr>
-    <td width="50%">
-      <img src="docs/screenshots/home-dashboard.png" alt="Main Dashboard">
+    <td width="100%">
+      <img src="docs/screenshots/dashboard.png" alt="Main Dashboard">
       <p align="center"><b>Interactive Dashboard</b><br/>Upload images or select from examples</p>
     </td>
-    <td width="50%">
-      <img src="docs/screenshots/classification-result.png" alt="Classification Result">
-      <p align="center"><b>Real-Time Classification</b><br/>Instant predictions with confidence scores</p>
-    </td>
+    
   </tr>
   <tr>
     <td width="50%">
-      <img src="docs/screenshots/example-gallery.png" alt="Example Gallery">
-      <p align="center"><b>Example Images</b><br/>Pre-loaded test cases for demonstration</p>
+      <img src="docs/screenshots/demo_ss_upload_2.png" alt="">
+      <p align="center"><b>Drag & Drop Upload</b><br/>Seamless file handling with preview</p>
     </td>
     <td width="50%">
-      <img src="docs/screenshots/upload-interface.png" alt="Upload Interface">
+      <img src="docs/screenshots/demo_ss_upload_1.png" alt="Upload Interface">
       <p align="center"><b>Drag & Drop Upload</b><br/>Seamless file handling with preview</p>
     </td>
   </tr>
@@ -41,15 +38,32 @@ Deep learning web application for automated pressure sore (pressure ulcer) detec
 <table>
   <tr>
     <td width="33%">
-      <img src="docs/screenshots/stage-1-prediction.png" alt="Stage I">
+      <img src="docs/screenshots/demo_ss_1.png" alt="Stage I">
       <p align="center"><b>Stage I Detection</b><br/>Early-stage pressure sore identification</p>
     </td>
     <td width="33%">
-      <img src="docs/screenshots/stage-3-prediction.png" alt="Stage III">
+      <img src="docs/screenshots/demo_ss_2.png" alt="Stage III">
       <p align="center"><b>Advanced Stage Classification</b><br/>Deep tissue damage assessment</p>
     </td>
     <td width="33%">
-      <img src="docs/screenshots/no-pressure-sore.png" alt="Negative Case">
+      <img src="docs/screenshots/demo_ss_3.png" alt="Stage IV">
+      <p align="center"><b>Advanced Stage Classification</b><br/>Deep tissue damage assessment</p>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="33%">
+      <img src="docs/screenshots/demo_ss_4.png" alt="No pressure sore">
+      <p align="center"><b>Negative Classification</b><br/>Accurate rejection of non-pressure sores</p>
+    </td>
+    <td width="33%">
+      <img src="docs/screenshots/demo_ss_5.png" alt="No pressure sore">
+      <p align="center"><b>Negative Classification</b><br/>Accurate rejection of non-pressure sores</p>
+    </td>
+    <td width="33%">
+      <img src="docs/screenshots/demo_ss_5.png" alt="No pressure sore">
       <p align="center"><b>Negative Classification</b><br/>Accurate rejection of non-pressure sores</p>
     </td>
   </tr>
