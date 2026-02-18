@@ -11,9 +11,9 @@ from starlette.responses import RedirectResponse
 
 from components  import *
 from passwords_helper import hash_password, verify_password
-from ps_classifier import classify_image_ps, pressure_examples, no_pressure_examples
-
-
+from ps_classifier import classify_image_ps as classify_torch
+from ps_classifier_yolo import classify_image_ps as classify_yolo
+from examples_config import *
 
 
 
@@ -65,6 +65,16 @@ before = Beforeware(
 hdrs = Theme.blue.headers()
 app, rt = fast_app(hdrs=hdrs, static_path=".", before=before)
 
+### Model selection helper
+def _route_backend(img_path, backend):
+    """Helper to route classification requests to the appropriate backend."""
+    backend = (backend or "").strip().lower()
+    if backend.startswith("torchvision"):
+        return classify_torch(img_path)
+    elif backend.startswith("yolo"):
+        return classify_yolo(img_path)
+    # fallback
+    return classify_torch(img_path)
 
 
 ### Routers ###
@@ -89,11 +99,18 @@ async def index(req, sess):
                     Button("Classify",cls=ButtonT.primary + " mt-2 w-full rounded-md py-3 px-5 md:py-3 md:px-6"),
                     hx_get=f"/classify?img_path={url_path}",
                     hx_target="#prediction-output",
-                    hx_swap="outerHTML"
+                    hx_swap="outerHTML",
+                    hx_include="#backend"
                 ),
                 cls="flex flex-col items-center p-3 border rounded-xl shadow-sm bg-white flex-shrink-0 w-48 snap-center"
             )
         )
+    
+    backend_select = Select(
+        Option("Torchvision", value="torchvision", selected=True),
+        Option("YOLO", value="yolo"),
+        name="backend", id="backend", cls="mt-2 w-48"
+    )
 
     # Make a single-row scroller for the examples (no wrapping on large screens)
     example_grid = Div(
@@ -131,7 +148,7 @@ async def index(req, sess):
                         hx_target="#prediction-output",
                         hx_swap="outerHTML",
                         hx_encoding="multipart/form-data",
-                        hx_include="#userfile"
+                        hx_include="#userfile,#backend"
                     ),
                     cls="mt-2"
                 ),
@@ -158,6 +175,11 @@ async def index(req, sess):
 
     content = Div(
         H2("Pressure Sore Classifier", cls="text-3xl font-bold mb-6 text-center"),
+        Div(
+            H4("Model backend", cls="text-base font-semibold mr-3"),
+            backend_select,
+            cls="flex items-center justify-start mb-3"
+        ),
         H3("Example Images", cls="text-xl font-semibold mb-3"),
         example_grid,
         two_column_layout,
@@ -168,7 +190,7 @@ async def index(req, sess):
 
 # --- CLASSIFICATION ROUTE ---
 @rt("/classify")
-async def classify(req, img_path: str):
+async def classify(req, img_path: str, backend: str = "torchvision"):
     """Load a selected example image, run the classifier, and return the prediction fragment."""
 
     if not img_path:
@@ -184,7 +206,7 @@ async def classify(req, img_path: str):
         else:
             return Div(P(f"Image not found: {p.name}", cls="text-red-600"), id="prediction-output")
         
-    final_image, message = classify_image_ps(img_path)
+    final_image, message = _route_backend(img_path, backend)
     if final_image is None:
         return Div(
             P("Classification failed.", cls="text-red-600 font-semibold"),
@@ -204,7 +226,7 @@ async def classify(req, img_path: str):
     return content
 
 @rt("/upload-classify")
-async def upload_classify(file: UploadFile):
+async def upload_classify(file: UploadFile, backend: str = "torchvision"):
     """Accept an uploaded image, run classification, and return the result fragment."""
     if not file:
         return Div("No file uploaded.", cls="text-red-600", id="prediction-output")
@@ -215,7 +237,7 @@ async def upload_classify(file: UploadFile):
     tmp_path = "static/_tmp_upload.jpg"
     img.save(tmp_path)
 
-    final_image, message = classify_image_ps(tmp_path)
+    final_image, message = _route_backend(tmp_path, backend)
 
     if final_image is None:
         return Div(

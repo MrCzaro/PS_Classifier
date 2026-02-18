@@ -1,4 +1,6 @@
-import torch, os
+from examples_config import *
+from image_utils import annotate_image
+import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,8 +9,8 @@ from torchvision import models
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
-from pathlib import Path
+from PIL import Image, UnidentifiedImageError
+
 
 def build_model(model_name, path_to_weights, num_classes=1, dropout=0.5, head_type="linear"):
     # Select architecture
@@ -116,62 +118,7 @@ def ensemble_predict(models, img, labels, binary=False):
     final_label = labels[idx]
     return idx, final_label, conf
 
-def annotate_image(img, label, confidence, font_size=30):
-    """
-    Anotates an image with predicted label and confidence.
-    
-    Args:
-        img (PIL.Image): Input image (can be a PIL object or path to image file).
-        label (str) : Predicted label name.
-        confidence (float) : Model confidence value (0-1 or %).
-        font_size (int) : Font size for annotation text.
 
-    Supports:
-        - PIL.Image
-        - image path (string)
-        - numpy array
-
-    Returns:
-        PIL.Image.Image (annotated)
-
-    """
-    # print(f"Input type to annotate_image: {type(img)}")
-    
-    try:
-        if isinstance(img, Image.Image):
-            annotated = img.copy() 
-
-        elif isinstance(img, str):
-            annotated = Image.open(img).convert("RGB")
-    
-        elif isinstance(img, np.ndarray):
-            annotated = Image.fromarray(img.astype(np.uint8)).convert("RGB") 
-        else:
-           # print("Invalid input type. Please provide a path (string) or a NumPy array.")
-            return None
-    except Exception as e:
-        # print(f"Error opening image: {e}.\n Please provide a valide image path or array.")
-        return None
-
-    # Create drawing object
-    draw = ImageDraw.Draw(annotated)
-    
-    # Load default font (or specify TTF ) 
-    try:
-        font = ImageFont.truetype("arial.ttf", font_size)
-    except IOError:
-        font = ImageFont.load_default()
-
-    # Define text
-    text_label = f"Predicted: {label.replace('_', ' ')}"
-    text_confidence = f"Confidence: {confidence:.2f}"
-
-    # Position text at top-left corner
-    x,y = 10, 10
-    draw.text((x,y), text_label, font=font, fill="yellow")
-    draw.text((x,y + font_size + 5), text_confidence, font=font, fill="yellow")
-    
-    return annotated
 
 def classify_image_ps(img_input):
     """
@@ -239,13 +186,3 @@ stage_models = [build_model(model_name=name, path_to_weights=values[0], head_typ
 binary_labels = ["not pressure_sore", "pressure sore"]
 multiclass_labels = ["stage I", "stage II", "stage III", "stage IV"]
 
-# Examples preperation
-BASE_DIR = Path(__file__).resolve().parent
-EXAMPLES_DIR = BASE_DIR / "static/"
-pressure_examples = [
-    os.path.join(EXAMPLES_DIR, f"pressure_{i}.jpg") for i in range(1, 4)
-]
-no_pressure_examples = [
-    os.path.join(EXAMPLES_DIR, f"no_pressure_{i}.jpg") for i in range(1, 4)
-]
-examples = pressure_examples + no_pressure_examples

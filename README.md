@@ -285,20 +285,20 @@ Binary: Pressure Sore?
 
 | Model | Accuracy | Precision | Recall | F1-Score |
 |-------|----------|-----------|--------|----------|
-| ConvNeXt-Tiny |  |  |  |  |
-| MaxViT-T |  |  |  |  |
-| EfficientNet-B4 |  |  |  |  |
-| ResNet-50 |  |  |  |  |
-| Swin-V2-T |  |  |  |  |
-| **Ensemble** | **** | **** | **** | **** |
+| ConvNeXt-Tiny |0.97|0.96|0.96|0.96|
+| MaxViT-T |0.98|0.97|0.98|0.98|
+| EfficientNet-B4 |0.99|0.99|0.99|0.99|
+| ResNet-50 |0.99 |0.98|0.98|0.97|
+| Swin-V2-T |0.96|0.96|0.96|  0.96|
+| **Ensemble** | **0.98** | **0.97** | **0.97** | **0.97** |
 
 ### Multi-Class Staging (Stage 2)
 
 | Model | Accuracy | Macro F1 | Stage III/IV F1 |
 |-------|----------|----------|-----------------|
-| EfficientNet-B1 |  |  |  |
-| EfficientNet-V2-M |  |  |  |
-| **Ensemble** | **** | **** | **** |
+| EfficientNet-B1 | 0.72 | 0.72 | 0.72 | 
+| EfficientNet-V2-M |0.77 | 0.77 | 0.77 |
+| **Ensemble** | **0.74** | **0.74** | **0.74** |
 
 
 **Note**: Stage III vs Stage IV remains the most challenging classification pair due to subtle visual differences requiring clinical context.
@@ -510,19 +510,19 @@ for img_file in input_dir.glob("*.jpg"):
 **Binary Models** (5 models):
 ```python
 binary_models_settings = {
-    "ConvNeXt_Tiny": ["path/to/weights", "mlp"],
-    "MaxVit_T": ["path/to/weights", "linear"],
-    "EfficientNet_B4": ["path/to/weights", "mlp"],
-    "ResNet50": ["path/to/weights", "mlp"],
-    "Swin_V2_T": ["path/to/weights", "linear"]
+    "ConvNeXt_Tiny": ["models/final_model_ConvNeXt_Tiny_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
+    "MaxVit_T": ["models/final_model_MaxVit_T_v2_model_head_linear_binary_CosineAnnealingLR.pth", "linear"],
+    "EfficientNet_B4": ["models/final_model_EfficientNet_B4_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
+    "ResNet50": ["models/final_model_ResNet50_v2_model_head_mlp_binary_CosineAnnealingLR.pth", "mlp"],
+    "Swin_V2_T": ["models/final_model_Swin_V2_T_v2_model_head_linear_binary_StepLR.pth", "linear"]
 }
 ```
 
 **Stage Models** (2 models):
 ```python
 stage_models_settings = {
-    "EfficientNet_B1": ["path/to/weights", "linear"],
-    "EfficientNet_V2_M": ["path/to/weights", "linear"]
+    "EfficientNet_B1": ["models/multiclass_EfficientNet_B1_Weights.IMAGENET1K_V2.pth", "linear"],
+    "EfficientNet_V2_M": ["models/multiclass_EfficientNet_V2_M_Weights.IMAGENET1K_V1.pth", "linear"]
 }
 ```
 
