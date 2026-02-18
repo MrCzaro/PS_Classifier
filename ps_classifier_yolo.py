@@ -48,7 +48,7 @@ def classify_image_ps(img_input):
     b_idx, b_label, b_conf = _ensemble_predict(binary_models, img)
     is_pressure = ("pressure" in _norm(b_label) and not _norm(b_label).startswith("not "))
     if not is_pressure or b_conf < BINARY_POS_THRESHOLD:
-        annotated = annotate_image(img_input, s_label, s_conf, font_size=20)
+        annotated = annotate_image(img_input, b_label, b_conf, font_size=20)
         msg= f"No pressure sore detected ({b_conf:.2f} confidence) — stage model skipped"
         return (annotated or img), msg
     
