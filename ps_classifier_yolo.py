@@ -25,13 +25,27 @@ def load_yolo_models():
     stage = [YOLO(p) for p in STAGE_MODEL_PATHS]
     return binary, stage
 
-def _ensemble_predict(models, img: Image.Image):
+def _ensemble_predict(models: list, img: Image.Image):
+    """
+    Run a list of YOLO classification models on a single PIL image
+    and return the ensemble-averaged prediction.
+    
+    Args:
+        models : list of loaded ultralytics YOLO objects.
+        img : PIL.Image (RGB) to classify.
+    
+    Returns:
+        idx : (int) - index of the winning class.
+        label : (str) - class name from the model's names dict.
+        conf : (float) -averaged probability of the winning class.
+    """
     all_probs, names_ref = [], None
     for model in models:
         result = model(img, verbose=False)[0]
         all_probs.append(result.probs.data.cpu().numpy())
         if names_ref is None:
             names_ref = result.names
+            
     avg_probs = np.mean(all_probs, axis=0)
     idx = int(np.argmax(avg_probs))
     label = names_ref[idx]
