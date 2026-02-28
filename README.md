@@ -711,13 +711,6 @@ Use at your own risk. The authors assume no liability for decisions made based o
 
 ---
 
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star! It helps others discover this work.
-
-[![Star History Chart](https://api.star-history.com/svg?repos=MrCzaro/PS_Classifier&type=Date)](https://star-history.com/#MrCzaro/PS_Classifier&Date)
-
----
 
 
 
