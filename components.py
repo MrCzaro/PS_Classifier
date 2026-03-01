@@ -102,3 +102,16 @@ def layout(req, content):
 def render(request, content):
     """Return only partial content for HTMX requests. Otherwise wrap in the full layout."""
     return content if request.headers.get("HX-Request") else layout(request, content)
+
+# Small UI helper — shows which backend produced the result
+# ---------------------------------------------------------------------------
+
+def backend_badge(backend: str):
+    """Small UI helper - shows which backend produced the result"""
+    labels = {
+        "torchvision":  ("Torchvision", "badge-info"),
+        "yolo":         ("YOLO",        "badge-warning"),
+        "yolo_cascade": ("YOLO Cascade","badge-success"),
+    }
+    text, cls = labels.get(backend, ("Unknown", "badge-ghost"))
+    return Span(f"Backend: {text}", cls=f"badge {cls} mb-2")

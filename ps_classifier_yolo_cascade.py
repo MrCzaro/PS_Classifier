@@ -82,3 +82,92 @@ def _ensemble_predict(models: list, img: Image.Image):
     label = names_ref[idx]
     conf = float(avg_probs[idx])
     return idx, label, conf
+
+
+# 3 Level Cascade Classifier
+def classify_image_cascade(img_input):
+    """
+    Full 3-level YOLO cascade inference.
+        
+    Args:
+        img_input : file path (str) or PIL.Image.
+
+    Returns:
+        final_image (PIL.Image) : annotated result.
+        message (str) : human readable summary.
+        details (dict) : per-level structured results for logging/UI.
+    """
+
+    # Load image
+    if isinstance(img_input, str):
+        img = Image.open(img_input).convert("RGB")
+    elif isinstance(img_input, Image.Image):
+        img = img_input.convert("RGB")
+    else:
+        img = Image.fromarray(np.array(img_input).astype(np.uint8)).convert("RGB")
+
+    details = {}
+
+    # Level 1: PS vs No PS
+    l1_idx, l1_label, l1_conf = _ensemble_predict(_load_l1(), img)
+    details["level_1"] = {"label": l1_label, "confidence" : l1_conf}
+
+    is_ps = ("pressure" in _norm(l1_label) and not _norm(l1_label).startswith("not") and l1_conf >= BINARY_THRESHOLD) 
+
+    if not is_ps:
+        message = f"❌ No pressure sore detected ({l1_conf:.2f} confidence)"
+        annotated = annotate_image(img, l1_label, l1_conf, font_size=20)
+        return (annotated or img), message, details
+    
+    # Level 2: Early (I/II) vs Advanced (III/IV)
+    try:
+        l2_idx, l2_label, l2_conf = _ensemble_predict(_load_l2(), img)
+        details["level_2"] = {"label": l2_label, "confidence" : l2_conf}
+    except Exception as e:
+        message = f"Error at severity triage (Level 2): {e}"
+        return img, message, details
+    
+    is_early = "early" in _norm(l2_label)
+
+    # Level 3: Fine-grained within the chosen group
+    try:
+        if is_early:
+            l3_idx, l3_label, l3_conf = _ensemble_predict(_load_l3_early(), img)
+            details["level_3"] = {"label" : l3_label, "confidence" : l3_conf}
+            group_path = "Early"
+        else: 
+            l3_idx, l3_label, l3_conf = _ensemble_predict(_load_l3_advanced(), img)
+            group_path = "Advanced"
+        details["level_3"] = {"label": l3_label, "confidence" : l3_conf, "group" : group_path}
+    except Exception as e:
+        message = f"Error at stage classification (Level 3): {e}"
+        return img, message, details
+    
+    # Build output
+    message = (
+        f"✅ Pressure sore detected\n"
+        f"Severity group: {l2_label} ({l2_conf:.2f})\n"
+        f"Stage: {l3_label} ({l3_conf:.2f})"
+    )
+    annotated = annotate_image(img, l3_label, l3_conf, font_size=20)
+    return (annotated or img), message, details
+
+def cascade_confidence(details: dict) -> float:
+    """
+    Multiply per-level confidences into a single joint confidence score.
+    
+    Example: L1=0.97, L2=0.84, L3=0.79 -> 0.97 x 0.84 x 0.79 ~0.644
+    
+    Usefyl for flagging low-certainty predictions for review.
+    """
+    score = 1.0
+    for level in ("level_1", "level_2", "level_3"):
+        if level in details:
+            score *= details[level]["confidence"]
+    return round(score, 4)
+
+# Wraper
+def classify_image_ps(img_input):
+    """Thin wrapper preserving the (final_image, message) return contract."""
+    final_image, message, _ = classify_image_cascade(img_input)
+    return final_image, message
