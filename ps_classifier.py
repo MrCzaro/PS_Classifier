@@ -163,18 +163,18 @@ def classify_image_ps(img_input):
     return final_image, message
 
 binary_models_settings = {
-    "ConvNeXt_Tiny" : ["models/final_model_ConvNeXt_Tiny_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
-    "MaxVit_T" : ["models/final_model_MaxVit_T_v2_model_head_linear_binary_CosineAnnealingLR.pth", "linear"],
-    "EfficientNet_B4" : ["models/final_model_EfficientNet_B4_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
-    "ResNet50" : ["models/final_model_ResNet50_v2_model_head_mlp_binary_CosineAnnealingLR.pth", "mlp"],
-    "Swin_V2_T" : ["models/final_model_Swin_V2_T_v2_model_head_linear_binary_StepLR.pth", "linear"]
+    "ConvNeXt_Tiny" : ["models/torch/final_model_ConvNeXt_Tiny_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
+    "MaxVit_T" : ["models/torch/final_model_MaxVit_T_v2_model_head_linear_binary_CosineAnnealingLR.pth", "linear"],
+    "EfficientNet_B4" : ["models/torch/final_model_EfficientNet_B4_v2_model_head_mlp_binary_StepLR.pth", "mlp"],
+    "ResNet50" : ["models/torch/final_model_ResNet50_v2_model_head_mlp_binary_CosineAnnealingLR.pth", "mlp"],
+    "Swin_V2_T" : ["models/torch/final_model_Swin_V2_T_v2_model_head_linear_binary_StepLR.pth", "linear"]
 
 }
 
 
 stage_models_settings = {
-    "EfficientNet_B1" : ["models/multiclass_EfficientNet_B1_Weights.IMAGENET1K_V2.pth", "linear" ],
-    "EfficientNet_V2_M" : ["models/multiclass_EfficientNet_V2_M_Weights.IMAGENET1K_V1.pth", "linear"],
+    "EfficientNet_B1" : ["models/torch/multiclass_EfficientNet_B1_Weights.IMAGENET1K_V2.pth", "linear" ],
+    "EfficientNet_V2_M" : ["models/torch/multiclass_EfficientNet_V2_M_Weights.IMAGENET1K_V1.pth", "linear"],
 
 }
 

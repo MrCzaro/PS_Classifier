@@ -8,12 +8,12 @@ from ultralytics import YOLO
 BINARY_POS_THRESHOLD = 0.5
 
 BINARY_MODEL_PATHS = [
-    "models/binary_yolo11l_aug_15_25.pt",
-    "models/binary_yolov8l-cls_best_aug_11.pt",
+    "models/yolo/binary_yolo11l_aug_15_25.pt",
+    "models/yolo/binary_yolov8l-cls_best_aug_11.pt",
 ]
 STAGE_MODEL_PATHS = [
-    "models/mutliclass_yolo11l_aug_15_25.pt",
-    "models/multiclass_yolov8s-cls_best_aug_13.pt",
+    "models/yolo/mutliclass_yolo11l_aug_15_25.pt",
+    "models/yolo/multiclass_yolov8s-cls_best_aug_13.pt",
 ]
 
 def _norm(s: str) -> str:

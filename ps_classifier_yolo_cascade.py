@@ -10,26 +10,26 @@ SEVERITY_THRESHOLD = 0.0 # set > 0 if you want a minimum confidence at L2/L3
 
 # Level 1 — PS vs No-PS 
 L1_MODEL_PATHS = [
-    "models/yolo_cascade/best_YoloV26(yolo26n-cls.pt) PS or Not PS Feb 24  2026 0.9962.pt",
-    "models/yolo_cascade/best_YoloV8(yolov8n-cls.pt) PS or Not PS Feb 24  2026 1.0.pt",
+    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO8x.pt",
+    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO26x.pt",
 ]
 
 # Level 2 — Early (Stage I or II) vs Advanced (Stage III or IV)
 L2_MODEL_PATHS = [
-    "models/yolo_cascade/best_YoloV8(yolov8s-cls.pt) E vs A PS Feb 23  2026 0.9718.pt",
-    "models/yolo_cascade/best_Yolo26(yolo26s-cls.pt) E vs A PS Feb 23  2026 0.9637.pt",
+    "models/yolo_cascade/Level 2 Early vs Advanced YOLO26x.pt",
+    "models/yolo_cascade/Level 2 Early vs Advanced YOLO8m.pt",
 ]
 
 # Level 3a — Early group: Stage I vs Stage II
 L3_EARLY_MODEL_PATHS = [
-    "models/yolo_cascade/best_YoloV8(yolov8n-cls.pt) Early PS Feb 23  2026 0.9032.pt",
-    "models/yolo_cascade/best_YoloV8(yolov8x-cls.pt) Early PS Feb 23  2026 0.9032.pt",
+    "models/yolo_cascade/Level 3a Early YOLO8n.pt",
+    "models/yolo_cascade/Level 3a Early YOLO26x.pt",
 ]
 
 # Level 3b — Advanced group: Stage III vs Stage IV
 L3_ADVANCED_MODEL_PATHS = [
-    "models/yolo_cascade/best_YoloV11(yolo11m-cls.pt) Advanced PS Feb 22  2026 0.7742.pt",
-    "models/yolo_cascade/best_YoloV8(yolov8n-cls.pt) Advanced PS Feb 22  2026 0.8226.pt",
+    "models/yolo_cascade/Level 3b Advanced  YOLO8x.pt",
+    "models/yolo_cascade/Level 3b Advanced  YOLO26x.pt",
 ]
 
 # Label normalization helper
