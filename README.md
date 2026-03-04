@@ -503,6 +503,66 @@ The joint cascade F1 is the product of ensemble F1 scores along each decision pa
 Both paths comfortably exceed the flat Torchvision staging ensemble (0.74 macro F1). The Early path reaches **0.9256** — driven by the strong L3a ensemble where `yolov8n` achieved perfect test-set accuracy and `yolo26x` backed it with 0.9286. The Advanced path reaches **0.8916**, a significant improvement over both the previous L3b selection (0.8016) and the flat baseline, confirming that isolating the III/IV boundary from Stage I/II samples is the primary driver of performance gains at the hardest cascade level.
 
 **NOTE**: Notebooks from this training pipeline are available in the project repository under the `notebooks/yolo_cascade` directory.
+
+## 🔑 Model Weights — YOLO Cascade
+
+YOLO Cascade weights (8 models, ~460MB total) are hosted on Hugging Face Hub:
+
+👉 **[MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)**
+
+### Download Options
+
+**Option A — clone the full weights repo**
+
+```bash
+git lfs install
+git clone https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO
+```
+
+**Option B — download individual files in Python**
+
+```python
+from huggingface_hub import hf_hub_download
+
+path = hf_hub_download(
+    repo_id="MrCzaro/Pressure_sore_cascade_classifier_YOLO",
+    filename="Level 1 Binary PS or not PS YOLO8x.pt"
+)
+```
+
+### Wiring weights into the application
+
+Once downloaded, update the path constants at the top of `ps_classifier_yolo_cascade.py`:
+
+```python
+# Level 1 — PS vs No-PS 
+L1_MODEL_PATHS = [
+    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO8x.pt",
+    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO26x.pt",
+]
+
+# Level 2 — Early (Stage I or II) vs Advanced (Stage III or IV)
+L2_MODEL_PATHS = [
+    "models/yolo_cascade/Level 2 Early vs Advanced YOLO26x.pt",
+    "models/yolo_cascade/Level 2 Early vs Advanced YOLO8m.pt",
+]
+
+# Level 3a — Early group: Stage I vs Stage II
+L3_EARLY_MODEL_PATHS = [
+    "models/yolo_cascade/Level 3a Early YOLO8n.pt",
+    "models/yolo_cascade/Level 3a Early YOLO26x.pt",
+]
+
+# Level 3b — Advanced group: Stage III vs Stage IV
+L3_ADVANCED_MODEL_PATHS = [
+    "models/yolo_cascade/Level 3b Advanced  YOLO8x.pt",
+    "models/yolo_cascade/Level 3b Advanced  YOLO26x.pt",
+]
+```
+
+Then select **YOLO Cascade** from the backend dropdown in the web interface.
+
+> **Torchvision weights** are available on request — see the contact section below.
 ---
 
 
@@ -577,7 +637,7 @@ mkdir models
 # - multiclass_yolov8s-cls_best_aug_13.pt
 ```
 
-**YOLO Cascade Weights** (8 files, ~160MB)
+**YOLO Cascade Weights** (8 files, ~460MB)
 ```bash
 # Add .pth files:
 # Level 1 — PS vs No-PS 
@@ -628,7 +688,9 @@ Open browser: http://localhost:5001
 
 ### Why Weights Are Not in Repository
 
-**Model weights are NOT uploaded to this repository** due to file size constraints (~1.2GB total for both pipelines).
+**Model weights are NOT uploaded to this repository** due to file size constraints (~1.0GB total for both pipelines YOLO and Pytorch).
+**Note**: Model weights for YOLO Cascade are available here 👉 **[MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)**
+
 
 ### How to Get Weights
 
@@ -801,61 +863,6 @@ L3_ADVANCED_MODEL_PATHS = [
 ```
 ---
 
-## 📁 Project Structure
-
-```
-PS_Classifier/
-├── main.py                         # FastHTML app — routes, backend selector, auth
-├── ps_classifier.py                # Torchvision 2-stage pipeline
-├── ps_classifier_yolo.py           # YOLO 2-stage pipeline
-├── ps_classifier_yolo_cascade.py   # YOLO 3-level cascade pipeline   ← NEW
-├── image_utils.py                  # Shared annotate_image() utility
-├── components.py                   # UI components (cards, forms, layout)
-├── examples_config.py              # Example image paths
-├── passwords_helper.py             # Bcrypt password utilities
-├── requirements.txt                # Python dependencies
-├── users.db                        # SQLite database (auto-generated)
-├── models/
-|   |torch/                         # Model weights (.pth / .pt files)
-│   │
-│   │  — Torchvision weights —
-│   ├── final_model_ConvNeXt_Tiny_*.pth
-│   ├── final_model_MaxVit_T_*.pth
-│   ├── final_model_EfficientNet_B4_*.pth
-│   ├── final_model_ResNet50_*.pth
-│   ├── final_model_Swin_V2_T_*.pth
-│   ├── multiclass_EfficientNet_B1_*.pth
-│   ├── multiclass_EfficientNet_V2_M_*.pth
-│   │
-|   |yolo/
-│   │  — YOLO (two-stage) weights —
-│   ├── binary_yolo11l_aug_15_25.pt
-│   ├── binary_yolov8l-cls_best_aug_11.pt
-│   ├── mutliclass_yolo11l_aug_15_25.pt
-│   ├── multiclass_yolov8s-cls_best_aug_13.pt
-│   │
-|   |yolo_cascade
-│   │  — YOLO Cascade weights —      ← NEW
-│   ├── cascade_l2_early_vs_advanced_model1.pt
-│   ├── cascade_l2_early_vs_advanced_model2.pt
-│   ├── cascade_l3_early_stageI_vs_stageII_model1.pt
-│   ├── cascade_l3_early_stageI_vs_stageII_model2.pt
-│   ├── cascade_l3_adv_stageIII_vs_stageIV_model1.pt
-│   └── cascade_l3_adv_stageIII_vs_stageIV_model2.pt
-│
-├── static/                         # Images and assets
-│   ├── pressure_1.jpg
-│   ├── pressure_2.jpg
-│   ├── pressure_3.jpg
-│   ├── no_pressure_1.jpg
-│   ├── no_pressure_2.jpg
-│   ├── no_pressure_3.jpg
-│   ├── error_picture.jpg
-│   ├── favicon.ico
-│   └── preview.js
-└── docs/
-    └── screenshots/
-```
 
 ## 🔒 Security & Privacy
 
@@ -910,7 +917,7 @@ This software is provided **"as is"** for **research and educational purposes on
 
 **Always consult licensed healthcare professionals for medical diagnosis and treatment.**
 
-Use at your own risk. The authors assume no liability for decisions made based on this tool's output.
+Use at your own risk. The author assumes no liability for decisions made based on this tool's output.
 
 ---
 
@@ -922,19 +929,6 @@ Use at your own risk. The authors assume no liability for decisions made based o
 - **Medical Community**: For publicly available educational resources
 - **Researchers**: Authors of pretrained models (ImageNet, COCO, etc.)
 - **Open Source**: Standing on the shoulders of giants
-
----
-
-
-### Current Status: ✅ v1.0 - Dual Pipeline Demo
-**Completed**:
-- ✅ PyTorch cascade architecture (7 models)
-- ✅ YOLO cascade architecture (4 models)
-- ✅ Modular backend system
-- ✅ Web app with authentication
-- ✅ Real-time inference (PyTorch: ~200ms, YOLO: ~70ms)
-- ✅ Mobile-responsive UI
-
 
 ---
 
