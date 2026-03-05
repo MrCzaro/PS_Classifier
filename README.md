@@ -75,7 +75,7 @@ Deep learning web application for automated pressure sore (pressure ulcer) detec
 
 ## 🎯 Project Overview
 
-This project implements a **multi-stage cascade deep learning pipeline** for automated pressure sore detection and classification. The system combines multiple state of the art computer vision models an esnemble architecture to achive robust performance across three selectable backends. 
+This project implements multiple deep learning pipeline strategies for automated pressure sore detection and classification, selectable at runtime via a backend dropdown. The system combines state-of-the-art computer vision models in ensemble architectures to achieve robust performance across three distinct backends.
 
 ### Medical Context
 
@@ -628,13 +628,15 @@ mkdir models
 # - multiclass_EfficientNet_V2_M_Weights.IMAGENET1K_V1.pth
 ```
 
-**YOLO Weights** (4 files, ~130MB):
+**YOLO Weights** (4 files, ~302MB):
 ```bash
 # Add .pt files:
-# - binary_yolo11l_aug_15_25.pt
-# - binary_yolov8l-cls_best_aug_11.pt
-# - mutliclass_yolo11l_aug_15_25.pt
-# - multiclass_yolov8s-cls_best_aug_13.pt
+# - Binary_YOLOv8x.pt
+# - Binary_YOLOv11s.pt
+# - Binary_YOLOv26x.pt
+# - Multiclass_YOLOv8n.pt
+# - Multiclass_YOLOv8x.pt
+# - Multiclass_YOLOv26m.pt
 ```
 
 **YOLO Cascade Weights** (8 files, ~460MB)
@@ -826,12 +828,14 @@ stage_models_settings = {
 **YOLO Models**:
 ```python
 BINARY_MODEL_PATHS = [
-    "models/yolo/binary_yolo11l_aug_15_25.pt",
-    "models/yolo/binary_yolov8l-cls_best_aug_11.pt",
+    "models/yolo/Binary_YOLOv8x.pt",
+    "models/yolo/Binary_YOLOv11s.pt",
+    "models/yolo/Binary_YOLOv26x.pt"
 ]
 STAGE_MODEL_PATHS = [
-    "models/yolo/mutliclass_yolo11l_aug_15_25.pt",
-    "models/yolo/multiclass_yolov8s-cls_best_aug_13.pt",
+    "models/yolo/Multiclass_YOLOv8n.pt",
+    "models/yolo/Multiclass_YOLOv8x.pt",
+    "models/yolo/Multiclass_YOLOv26m.pt"
 ]
 ```
 
