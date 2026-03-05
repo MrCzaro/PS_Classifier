@@ -89,367 +89,146 @@ This project implements multiple deep learning pipeline strategies for automated
 Early detection and accurate staging are critical for treatment planning and preventing progression.
 
 ---
-
 ## ✨ Key Features
 
-### 🧠  Deep Learning Architecture
+### 🧠 Three Selectable Backends
 
+#### Backend 1 — Torchvision Cascade (PyTorch)
+**Stage 1 — Binary Detection**: 5-model ensemble (ConvNeXt-Tiny, MaxViT-T, EfficientNet-B4, ResNet-50, Swin-V2-T)  
+**Stage 2 — Multi-Class Staging**: 2-model ensemble (EfficientNet-B1, EfficientNet-V2-M)  
+**Weights**: Available on request — see [Obtaining Model Weights](#-obtaining-model-weights)
 
-- **Cascade Classification Pipelines**: Two-stage (Torchvision) and three-stage (YOLO Cascade) approaches
-- **Ensemble Modeling**: Combines multiple neural networks at every cascade level for robust predictions
-- **Three Selectable Backends**: Switch between Torchvision ensemble, YOLO ensemble, and YOLO Cascade directly from the UI
-- **Model Zoo**:
-  - EfficientNet (B0, B1, B3, B4, V2-M)
-  - Vision Transformers (ViT-B/16)
-  - MaxViT, ConvNeXt, Swin V2
-  - Wide ResNet-50, ResNet-50/152
-  - YOLOv8, YOLO11 and YOLO26 (Ultralytics classification)
-- **Advanced Architectures Tested**:
-  - DINOv2 (Meta AI)
-  - Custom PyTorch implementations
+#### Backend 2 — YOLO 2-Stage ← NEW
+**Stage 1 — Binary Detection**: 3-model YOLO ensemble (YOLO11s, YOLOv8x, YOLO26x)  
+**Stage 2 — Multi-Class Staging**: 3-model YOLO ensemble (YOLOv8n, YOLO26m, YOLOv8x)  
+**Weights**: 👉 [MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)
 
-
-### 🔬 Cascade Approaches
-
-#### Backend 1 — Torchvision: Two-Stage Ensemble
-**Stage 1 — Binary Classification**
-- Objective: Pressure sore vs. non-pressure sore
-- Models: 5-model ensemble (ConvNeXt-Tiny, MaxViT-T, EfficientNet-B4, ResNet-50, Swin-V2-T)
-- Output: Binary decision + confidence score
-
-**Stage 2 — Multi-Class Staging (Conditional)**
-- Objective: Classify severity (Stage I / II / III / IV)
-- Activation: Only runs if Stage 1 detects a pressure sore
-- Models: 2-model ensemble (EfficientNet-B1, EfficientNet-V2-M)
-- Output: Stage prediction + confidence score
-
-#### Backend 2 — YOLO: Two-Stage Ensemble
-Same two-stage logic as Torchvision, using Ultralytics YOLO classification models at each stage.
-
-**Stage 1 — Binary Classification**
-- Models: 2-model YOLO ensemble (YOLO11l, YOLOv8l)
-- Output: Binary decision + confidence score
-
-**Stage 2 — Multi-Class Staging (Conditional)**
-- Models: 2-model YOLO ensemble (YOLO11l, YOLOv8s)
-- Output: Stage I / II / III / IV + confidence score
-
-#### Backend 3 — YOLO Cascade: Three-Level Hierarchical Ensemble ⭐ NEW
-Decomposes the hard 4-class staging problem into a tree of simpler binary decisions, mimicking the way a clinician thinks — detect first, triage severity, then refine within the group. Each level uses a 2-model YOLO ensemble.
-
-**Level 1 — PS vs No-PS**
-- Same binary YOLO ensemble as Backend 2 (weights reused)
-- Output: Pressure sore present / absent
-
-**Level 2 — Early (I/II) vs Advanced (III/IV)**
-- Activated only when Level 1 is positive
-- Objective: Coarse severity triage — is this an early or advanced wound?
-- Models: 2 YOLO models trained specifically on the Early vs Advanced split
-- Output: Severity group + confidence
-
-**Level 3a — Stage I vs Stage II** *(Early branch)*
-**Level 3b — Stage III vs Stage IV** *(Advanced branch)*
-- Activated depending on the Level 2 decision
-- Each is an independent 2-model YOLO ensemble trained only within its group
-- Output: Final stage label + confidence
-
-Each request returns a per-level `details` dict for logging and auditability:
-```python
-{
-  "level_1": {"label": "pressure sore",  "confidence": 0.97},
-  "level_2": {"label": "early",          "confidence": 0.84},
-  "level_3": {"label": "stage II",       "confidence": 0.79, "group": "Early"}
-}
-```
-
-### 🌐 Web Application
-
-- **FastHTML Framework**: Modern Python web framework with HTMX
-- **MonsterUI Components**: Beautiful, responsive Tailwind CSS + DaisyUI interface
-- **Three-Backend Selector**: Toggle between Torchvision, YOLO, and YOLO Cascade in real time
-- **Backend Badge**: Every result shows which backend produced it — useful for side-by-side comparison
-- **Real-Time Inference**: Instant predictions via drag-and-drop or example selection
-- **User Authentication**: Secure login/signup with bcrypt password hashing
-- **Image Annotation**: Automatic overlay of predictions with confidence scores
-
+#### Backend 3 — YOLO Cascade (3-Level Hierarchical)
+**Level 1 — PS vs No-PS**: 2-model ensemble (YOLOv8x, YOLO26n)  
+**Level 2 — Early vs Advanced**: 2-model ensemble (YOLOv8m, YOLO26x)  
+**Level 3a — Stage I vs II**: 2-model ensemble (YOLOv8n, YOLO26x)  
+**Level 3b — Stage III vs IV**: 2-model ensemble (YOLOv8x, YOLO26x)  
+**Weights**: 👉 [MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)
 
 ---
 
 ## 🏗️ Architecture
 
-### System Diagram
-
-#### YOLO and PyTorch
-```
-┌─────────────────────┐
-│   User Interface    │
-│  (FastHTML + HTMX)  │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Image Input Pipeline                      │
-│  • Upload (Drag & Drop)                                     │
-│  • Example Gallery Selection                                │
-│  • Preprocessing                                            │
-└──────────┬──────────────────────────────────────────────────┘
-           │
-           ├──────────────────────┬
-           │                      │ 
-           ▼                      ▼          
-    ┌──────────────┐      ┌──────────────┐        
-    │   PyTorch    │      │     YOLO     │        
-    │   Pipeline   │      │   Pipeline   │        
-    │  (Active)    │      │ (Available)  │        
-    └──────┬───────┘      └──────┬───────┘        
-           │                     │
-           └──────────┬──────────┘
-                      │
-                      ▼
-         ┌────────────────────────────┐
-         │   STAGE 1: Binary Detect   │
-         │   Ensemble → Vote          │
-         └────────────┬───────────────┘
-                      │
-              ┌───────┴────────┐
-              │                │
-         NO   │                │  YES
-              │                │
-              ▼                ▼
-    ┌──────────────┐  ┌─────────────────┐
-    │   Negative   │  │  STAGE 2: Stage │
-    │     Return   │  │  Ensemble→Vote  │
-    └──────────────┘  └────────┬────────┘
-                               │
-                               ▼
-                    ┌──────────────────┐
-                    │ Annotate + Return│
-                    └──────────────────┘
-```
-
-#### YOLO Cascade
+### Backend 1 — Torchvision Cascade
 
 ```
-┌─────────────────────┐
-│   User Interface    │
-│  (FastHTML + HTMX)  │
-│                     │
-│  Backend selector:  │
-│  ○ Torchvision      │
-│  ○ YOLO             │
-│  ● YOLO Cascade     │
-└──────────┬──────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Image Input Pipeline                       │
-│  • Upload (Drag & Drop) or Example Gallery                   │
-│  • Preprocessing (Resize, Normalize)                         │
-└──────────┬───────────────────────────────────────────────────┘
-           │
-           ▼
-╔══════════════════════════════════════════════════════════════╗
-║          LEVEL 1: Binary Classification                      ║
-║                                                              ║
-║   ┌──────────────┐          ┌──────────────┐                ║
-║   │   YOLO11l    │          │   YOLOv8l    │  (+ more)      ║
-║   └──────┬───────┘          └──────┬───────┘                ║
-║          └──────────┬─────────────┘                         ║
-║                     ▼                                        ║
-║             ┌───────────────┐                                ║
-║             │   Ensemble    │                                ║
-║             │   Averaging   │                                ║
-║             └───────┬───────┘                                ║
-║                     │                                        ║
-║             Decision: Pressure Sore?                         ║
-╚═════════════════════╪════════════════════════════════════════╝
-                      │
-          ┌───────────┴───────────┐
-          │ NO                    │ YES
-          ▼                       ▼
-┌──────────────────┐  ╔══════════════════════════════════════════╗
-│ Return Negative  │  ║   LEVEL 2: Severity Triage               ║
-└──────────────────┘  ║                                          ║
-                      ║  ┌──────────────┐  ┌──────────────┐     ║
-                      ║  │  YOLO model  │  │  YOLO model  │     ║
-                      ║  └──────┬───────┘  └──────┬───────┘     ║
-                      ║         └────────┬─────────┘            ║
-                      ║                  ▼                       ║
-                      ║          ┌───────────────┐               ║
-                      ║          │   Ensemble    │               ║
-                      ║          └───────┬───────┘               ║
-                      ║                  │                       ║
-                      ║    Early (I/II) OR Advanced (III/IV)?    ║
-                      ╚══════════════════╪═══════════════════════╝
-                                         │
-                          ┌──────────────┴──────────────┐
-                          │ EARLY                        │ ADVANCED
-                          ▼                              ▼
-          ╔═══════════════════════╗    ╔═══════════════════════╗
-          ║  LEVEL 3a             ║    ║  LEVEL 3b             ║
-          ║  Stage I vs Stage II  ║    ║  Stage III vs Stage IV║
-          ║                       ║    ║                       ║
-          ║ ┌──────┐   ┌──────┐  ║    ║ ┌──────┐   ┌──────┐  ║
-          ║ │YOLO 1│   │YOLO 2│  ║    ║ │YOLO 1│   │YOLO 2│  ║
-          ║ └──┬───┘   └──┬───┘  ║    ║ └──┬───┘   └──┬───┘  ║
-          ║    └────┬──────┘      ║    ║    └────┬──────┘      ║
-          ║         ▼             ║    ║         ▼             ║
-          ║    ┌─────────┐        ║    ║    ┌─────────┐        ║
-          ║    │Ensemble │        ║    ║    │Ensemble │        ║
-          ║    └────┬────┘        ║    ║    └────┬────┘        ║
-          ║         │             ║    ║         │             ║
-          ║   Stage I / Stage II  ║    ║ Stage III / Stage IV  ║
-          ╚═════════╪═════════════╝    ╚═════════╪═════════════╝
-                    └──────────────┬──────────────┘
-                                   ▼
-                       ┌───────────────────────┐
-                       │   Annotate Image      │
-                       │  (Label + Confidence) │
-                       │  + Cascade Path Info  │
-                       └───────────────────────┘
-                                   │
-                                   ▼
-                       ┌───────────────────────┐
-                       │   Return to User      │
-                       │  (Base64-encoded PNG) │
-                       │  + Backend Badge      │
-                       └───────────────────────┘
-
+Image → [Binary Ensemble: 5 models] → PS detected?
+           NO → Return negative
+           YES → [Staging Ensemble: 2 models] → Stage I/II/III/IV
 ```
 
-### Data Flow
+### Backend 2 — YOLO 2-Stage
 
-**Torchvision / YOLO (two-stage)**
-1. Input → preprocessing → binary ensemble → pressure sore detected?
-2. If YES → multi-class ensemble → Stage I / II / III / IV
+```
+Image → [Binary YOLO Ensemble: YOLO11s + YOLOv8x + YOLO26x] → PS detected?
+           NO → Return negative
+           YES → [Multiclass YOLO Ensemble: YOLOv8n + YOLO26m + YOLOv8x] → Stage I/II/III/IV
+```
 
-**YOLO Cascade (three-level)**
-1. Input → preprocessing → Level 1 binary ensemble → pressure sore detected?
-2. If YES → Level 2 severity triage → Early group or Advanced group?
-3. Early → Level 3a ensemble → Stage I or Stage II
-4. Advanced → Level 3b ensemble → Stage III or Stage IV
-5. Annotation with final label + cascade path, returned to user
+### Backend 3 — YOLO Cascade (3-Level)
 
+```
+Image
+  │
+  ▼
+[L1] PS vs No-PS  (YOLOv8x + YOLO26n)
+  │ NO  → Return negative
+  │ YES ↓
+[L2] Early (I/II) vs Advanced (III/IV)  (YOLOv8m + YOLO26x)
+  ├─ EARLY    → [L3a] Stage I vs Stage II   (YOLOv8n + YOLO26x)
+  └─ ADVANCED → [L3b] Stage III vs Stage IV (YOLOv8x + YOLO26x)
+```
 ---
 
 ## 🧪 Research & Development
 
 ### Experimental Approaches
 
-This project represents iterative research exploring multiple deep learning paradigms:
+#### ✅ Current Implementation 1 — Torchvision Cascade Ensemble
+**Architecture**: Binary detection → Multi-class staging  
+**Rationale**: Mimics clinical workflow — detect first, then stage  
+**Pros**: High specificity, interpretable confidence scores  
+**Challenges**: Stage III/IV differentiation remains difficult
 
-#### ✅ Current Implementation 1 — Torchvision Two-Stage Ensemble
-**Architecture**: Binary detection → Multi-class staging (4 classes)
-**Rationale**: Mimics clinical workflow (detect first, then stage)
-**Pros**: High specificity, interpretable confidence scores
-**Challenge**: Stage III/IV differentiation remains difficult in a single 4-class head
+#### ✅ Current Implementation 2 — YOLO 2-Stage
+**Architecture**: Binary YOLO ensemble → Multiclass YOLO ensemble  
+**Rationale**: Leverages YOLO's fast inference and classification head for both stages in a single framework  
+**Binary stage**: Near-perfect detection (AUC up to 1.0000 across all 3 models)  
+**Staging**: Macro F1 0.8514 ensemble — significant improvement over Torchvision baseline (0.74)
 
-#### ✅ Current Implementation 2 — YOLO Two-Stage Ensemble
-**Architecture**: Binary YOLO → Multi-class YOLO (4 classes)
-**Rationale**: Faster inference, simpler weight management with Ultralytics
-**Pros**: Consistent API across backends, competitive accuracy
+#### ✅ Current Implementation 3 — YOLO Cascade (3-Level)
+**Architecture**: Hierarchical binary decisions — PS → Early/Advanced → Stage I/II or III/IV  
+**Rationale**: Decomposes the hard 4-class problem into simpler binary boundaries  
+**Joint F1**: 0.9256 (Early path), 0.8916 (Advanced path)  
+**Key finding**: Isolating Stage III/IV from Stage I/II was the primary driver of improvement on the hardest classification pair
 
-#### ✅ Current Implementation 3 — YOLO Cascade (Three-Level Hierarchical)
-```
-Level 1: Pressure Sore?
-  └─ YES → Level 2: Early (I/II) vs Advanced (III/IV)?
-              ├─ Early    → Level 3a: Stage I vs Stage II
-              └─ Advanced → Level 3b: Stage III vs Stage IV
-  └─ NO  → Return Negative
-```
-**Rationale**: Decomposes a hard 4-class problem into three easier binary decisions. Each model only needs to learn one boundary at a time, which reduces inter-class confusion — especially between Stage III and IV, which share similar visual features but differ significantly from Stage I and II.
-
-**Key advantages over flat multi-class:**
-- Smaller per-level label space → simpler decision boundary per model
-- Level 2 and Level 3 models are trained only on the data relevant to their branch → less noise from unrelated classes
-- Per-level confidence scores enable a joint `cascade_confidence` metric for flagging uncertain predictions for human review
-- Failure modes are more interpretable — you can see exactly which level the model was uncertain at
-
-**Challenge**: Requires separate labelled training sets for each cascade level. Stage I/II data must be isolated from Stage III/IV data for the Level 3 models.
-
-#### 🔬 Alternative Approaches Tested
-
-**1. Binary Cascade with Staged Routing**
-```
-Binary: Pressure Sore? 
-  ├─ YES → Binary: Early (I/II) vs Advanced (III/IV)?
-  │           ├─ Early → Binary: Stage I vs Stage II
-  │           └─ Advanced → Binary: Stage III vs Stage IV
-  └─ NO → Return Negative
-```
-**Status**: Prototyped in PyTorch  
-**Outcome**: Showed promise for Stage III/IV separation but requires annotated quality data.
-
-**2. YOLOv8/YOLOv11 Object Detection with Bounding Boxes**  
-**Approach**: Detect pressure sores spatially in full images  
-**Status**: Experimented with object detection framework  
-**Outcome**: Classification mode (current approach) proved more effective than detection for this use case
-
-**3. DINOv2 Self-Supervised Learning**  
-**Approach**: Meta's self-supervised ViT for medical domain adaptation  
-**Status**: Fine-tuned on collected dataset  
-**Outcome**: Competitive performance but high computational cost (4× slower than YOLO)
+#### 🔬 Also Tested
+- **DINOv2** (Meta AI self-supervised ViT): Competitive performance but high computational cost
+- **YOLO object detection** (bounding box mode): Struggled with localization in medical images
 
 ---
 
-
-
-### Dataset & Annotation
-
-**Current Dataset**: ~1,000 images collected from public medical databases  
-**Sources**: Medical journals, educational resources, research datasets  
-**Annotation Status**: In progress - manual staging by clinical guidelines
-
-**Note for YOLO Cascade**: Three additional binary label sets are derived from the main dataset - Early vs Advanced (all PS images), Stage I vs II (early subset only), Stage III and IV (advanced subset only).
-
-**Future Work**: 
-- Collect larger dataset 
-- Collect time-series data (wound progression)
-
 ---
-
 ## 📊 Model Performance
 
+### Backend 1 — Torchvision Cascade
 
-### Backend 1 - Torchvision Binary Classification (Stage 1)
+#### Stage 1 — Binary Classification
 
 | Model | Accuracy | Precision | Recall | F1-Score |
 |-------|----------|-----------|--------|----------|
-| ConvNeXt-Tiny | 0.97 | 0.96 | 0.96 | 0.96 |
-| MaxViT-T | 0.98 | 0.97 | 0.98 | 0.98 |
-| EfficientNet-B4 | 0.99 | 0.99 | 0.99 | 0.99 |
-| ResNet-50 | 0.99 | 0.98 | 0.98 | 0.97 |
-| Swin-V2-T | 0.96 | 0.96 | 0.96 | 0.96 |
-| **Ensemble** | **0.98** | **0.97** | **0.97** | **0.97** |
+| ConvNeXt-Tiny    | 0.97 | 0.96 | 0.96 | 0.96 |
+| MaxViT-T         | 0.98 | 0.97 | 0.98 | 0.98 |
+| EfficientNet-B4  | 0.99 | 0.99 | 0.99 | 0.99 |
+| ResNet-50        | 0.99 | 0.98 | 0.98 | 0.97 |
+| Swin-V2-T        | 0.96 | 0.96 | 0.96 | 0.96 |
+| **Ensemble**     | **0.98** | **0.97** | **0.97** | **0.97** |
 
-### Backend 1 - Torchvision Multi-Class Staging (Stage 2)
+#### Stage 2 — Multi-Class Staging
 
 | Model | Accuracy | Macro F1 | Stage III/IV F1 |
 |-------|----------|----------|-----------------|
-| EfficientNet-B1 | 0.72 | 0.72 | 0.72 |
+| EfficientNet-B1   | 0.72 | 0.72 | 0.72 |
 | EfficientNet-V2-M | 0.77 | 0.77 | 0.77 |
-| **Ensemble** | **0.74** | **0.74** | **0.74** |
+| **Ensemble**      | **0.74** | **0.74** | **0.74** |
 
-**Note**: Stage III vs Stage IV is the most challenging pair due to subtle visual differences requiring clinical context.
+---
 
+### Backend 2 — YOLO 2-Stage
 
+#### Stage 1 — Binary Detection (3-Model YOLO Ensemble)
 
-### Backend 2 - YOLO Binary Classification (Stage 1)
+| Model | Accuracy | Macro F1 | AUC-ROC |
+|-------|----------|----------|---------|
+| YOLO11s-cls  | 1.0000 | 1.0000 | 0.9998 |
+| YOLOv8x-cls  | 1.0000 | 1.0000 | 1.0000 |
+| YOLO26x-cls  | 1.0000 | 1.0000 | 1.0000 |
+| **Ensemble** | **1.0000** | **1.0000** | **—** |
 
-| Model | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| YOLOv11-Large | 0.99 | 0.99 | 0.99 | 0.99 |
-| YOLOv8-Large | 0.99 | 0.99 | 0.99 | 0.99 |
-| **Ensemble** | **0.99** | **0.99** | **0.99** | **0.99** |
+#### Stage 2 — Multi-Class Staging (3-Model YOLO Ensemble)
 
-### Backend 2 - YOLO Multi-Class Staging (Stage 2)
+| Model | Accuracy | Macro F1 | Macro AUC-ROC (OvR) |
+|-------|----------|----------|---------------------|
+| YOLOv8n-cls  | 0.8571 | 0.8500 | 0.9486 |
+| YOLO26m-cls  | 0.8571 | 0.8542 | 0.9306 |
+| YOLOv8x-cls  | 0.8571 | 0.8501 | 0.9247 |
+| **Ensemble** | **0.8571** | **0.8514** | **—** |
 
-| Model | Accuracy | Macro F1 | Stage III/IV F1 |
-|-------|----------|----------|-----------------|
-| YOLOv11-Large | 0.77 | 0.77 | 0.77 |
-| YOLOv8-Small | 0.85 | 0.85 | 0.85 |
-| **Ensemble** | **0.81** | **0.81** | **0.81** |
+**Per-class AUC-ROC:**
 
+| Stage | YOLOv8n | YOLO26m | YOLOv8x |
+|-------|---------|---------|---------|
+| Stage I   | 0.9913 | 0.9712 | 0.9934 |
+| Stage II  | 0.9455 | 0.9261 | 0.9268 |
+| Stage III | 0.8852 | 0.8866 | 0.8450 |
+| Stage IV  | 0.9723 | 0.9386 | 0.9337 |
+
+The 3-model YOLO ensemble achieves **0.8514 Macro F1** on staging — a significant improvement over the Torchvision baseline (0.74) using a simpler single-framework pipeline.
 
 ---
 
@@ -457,112 +236,88 @@ Binary: Pressure Sore?
 
 #### Level 1 — Binary: PS vs No-PS
 
-| Model | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| YOLOv26n-cls | 0.9962 | 0.9962 | 0.9962 | 0.9962 |
-| YOLOv8x-cls  | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
-| **Ensemble** | **0.9981** | **0.9981** | **0.9981** | **0.9981** |
+| Model | Accuracy | Macro F1 | AUC-ROC |
+|-------|----------|----------|---------|
+| YOLOv8x-cls  | 1.0000 | 1.0000 | 1.0000 |
+| YOLO26n-cls  | 1.0000 | 1.0000 | 0.9991 |
+| **Ensemble** | **1.0000** | **1.0000** | **—** |
 
 #### Level 2 — Binary: Early (Stage I/II) vs Advanced (Stage III/IV)
 
-| Model | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| YOLOv8m-cls  | 0.9615 | 0.9645 | 0.9615 | 0.9616 |
-| YOLOv26x-cls | 0.9615 | 0.9645 | 0.9615 | 0.9616 |
-| **Ensemble** | **0.9615** | **0.9645** | **0.9615** | **0.9616** |
+| Model | Accuracy | Macro F1 | AUC-ROC |
+|-------|----------|----------|---------|
+| YOLOv8m-cls  | 0.9615 | 0.9616 | 0.9948 |
+| YOLO26x-cls  | 0.9615 | 0.9616 | 0.9969 |
+| **Ensemble** | **0.9615** | **0.9616** | **—** |
 
 #### Level 3a — Binary: Stage I vs Stage II *(Early branch)*
 
-| Model | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| YOLOv8n-cls  | 1.000 | 1.000 | 1.000 | 1.000 |
-| YOLOv26x-cls  | 0.9286 | 0.9388 | 0.9286 | 0.9289 |
-| **Ensemble** | **0.9643** | **0.9694** | **0.9643** | **0.9644** |
+| Model | Accuracy | Macro F1 | AUC-ROC |
+|-------|----------|----------|---------|
+| YOLOv8n-cls  | 1.0000 | 1.0000 | 0.9501 |
+| YOLO26x-cls  | 0.9286 | 0.9289 | 0.9521 |
+| **Ensemble** | **0.9643** | **0.9644** | **—** |
 
 #### Level 3b — Binary: Stage III vs Stage IV *(Advanced branch)*
 
-| Model | Accuracy | Precision | Recall | F1-Score |
-|-------|----------|-----------|--------|----------|
-| YOLOv8x-cls  | 0.9286 | 0.9388 | 0.9286 | 0.9289 |
-| YOLOv26x-cls | 0.9286 | 0.9388 | 0.9286 | 0.9289 |
-| **Ensemble** | **0.9286** | **0.9388** | **0.9286** | **0.9289** |
+| Model | Accuracy | Macro F1 | AUC-ROC |
+|-------|----------|----------|---------|
+| YOLOv8x-cls  | 0.9286 | 0.9289 | 0.9126 |
+| YOLO26x-cls  | 0.9286 | 0.9289 | 0.8366 |
+| **Ensemble** | **0.9286** | **0.9289** | **—** |
 
-Despite being the hardest binary pair in the dataset, L3b improves substantially on the flat Torchvision Stage 2 ensemble (0.74 macro F1) by isolating the III/IV decision from unrelated Stage I/II samples. Selecting `yolov8x` and `yolo26x` — two architecturally distinct families both achieving identical top performance — maximises ensemble diversity without sacrificing accuracy.
+#### End-to-End Path Analysis
 
----
-
-### Backend 3 — YOLO Cascade: End-to-End Path Analysis
-
-The joint cascade F1 is the product of ensemble F1 scores along each decision path — a conservative lower-bound on end-to-end performance, since errors at each level must compound for the whole chain to fail.
+Joint F1 = product of ensemble F1 scores along each path (conservative lower bound):
 
 | Cascade Path | L1 F1 | L2 F1 | L3 F1 | Joint F1 |
 |---|---|---|---|---|
 | PS → Early → **Stage I or II**      | 0.9981 | 0.9616 | 0.9644 | **0.9256** |
 | PS → Advanced → **Stage III or IV** | 0.9981 | 0.9616 | 0.9289 | **0.8916** |
 
-Both paths comfortably exceed the flat Torchvision staging ensemble (0.74 macro F1). The Early path reaches **0.9256** — driven by the strong L3a ensemble where `yolov8n` achieved perfect test-set accuracy and `yolo26x` backed it with 0.9286. The Advanced path reaches **0.8916**, a significant improvement over both the previous L3b selection (0.8016) and the flat baseline, confirming that isolating the III/IV boundary from Stage I/II samples is the primary driver of performance gains at the hardest cascade level.
+Both paths exceed the flat Torchvision staging baseline (0.74 macro F1).
 
-**NOTE**: Notebooks from this training pipeline are available in the project repository under the `notebooks/yolo_cascade` directory.
+---
 
-## 🔑 Model Weights — YOLO Cascade
+## 🔑 Obtaining Model Weights
 
-YOLO Cascade weights (8 models, ~460MB total) are hosted on Hugging Face Hub:
+### Backend 2 — YOLO 2-Stage
+
+👉 **[MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)**
+
+```bash
+git lfs install
+git clone https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO
+```
+
+```python
+from huggingface_hub import hf_hub_download
+
+path = hf_hub_download(
+    repo_id="MrCzaro/Pressure_sore_classifier_YOLO",
+    filename="Binary PS or not PS YOLO8x.pt"
+)
+```
+
+### Backend 3 — YOLO Cascade
 
 👉 **[MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)**
-
-### Download Options
-
-**Option A — clone the full weights repo**
 
 ```bash
 git lfs install
 git clone https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO
 ```
 
-**Option B — download individual files in Python**
+### Backend 1 — Torchvision
 
-```python
-from huggingface_hub import hf_hub_download
+Weights (~800MB) available on request:
 
-path = hf_hub_download(
-    repo_id="MrCzaro/Pressure_sore_cascade_classifier_YOLO",
-    filename="Level 1 Binary PS or not PS YOLO8x.pt"
-)
+```
+📧 Email: cezary.tubacki@gmail.com
+💬 Subject: "PS_Classifier Weights Request"
+📝 Include: Your name, affiliation, and intended use case
 ```
 
-### Wiring weights into the application
-
-Once downloaded, update the path constants at the top of `ps_classifier_yolo_cascade.py`:
-
-```python
-# Level 1 — PS vs No-PS 
-L1_MODEL_PATHS = [
-    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO8x.pt",
-    "models/yolo_cascade/Level 1 Binary PS or not PS YOLO26x.pt",
-]
-
-# Level 2 — Early (Stage I or II) vs Advanced (Stage III or IV)
-L2_MODEL_PATHS = [
-    "models/yolo_cascade/Level 2 Early vs Advanced YOLO26x.pt",
-    "models/yolo_cascade/Level 2 Early vs Advanced YOLO8m.pt",
-]
-
-# Level 3a — Early group: Stage I vs Stage II
-L3_EARLY_MODEL_PATHS = [
-    "models/yolo_cascade/Level 3a Early YOLO8n.pt",
-    "models/yolo_cascade/Level 3a Early YOLO26x.pt",
-]
-
-# Level 3b — Advanced group: Stage III vs Stage IV
-L3_ADVANCED_MODEL_PATHS = [
-    "models/yolo_cascade/Level 3b Advanced  YOLO8x.pt",
-    "models/yolo_cascade/Level 3b Advanced  YOLO26x.pt",
-]
-```
-
-Then select **YOLO Cascade** from the backend dropdown in the web interface.
-
-> **Torchvision weights** are available on request — see the contact section below.
 ---
 
 
@@ -602,80 +357,25 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Obtain model weights** ⚠️
-
-**Model weights are NOT included in this repository** due to size constraints.
-
-**For access to weights**:
-```
-📧 Email: cezary.tubacki@gmail.com
-💬 Subject: "PS_Classifier Model Weights Request"
-📝 Include: Your intended use case (evaluation, research, etc.)
-```
-
-Once obtained, place the files in the `models/` directory:
-
-**PyTorch Weights** (7 files, ~730MB):
+4. **Download YOLO weights**
 ```bash
-mkdir models
-# Add .pth files:
-# - final_model_ConvNeXt_Tiny_v2_model_head_mlp_binary_StepLR.pth
-# - final_model_MaxVit_T_v2_model_head_linear_binary_CosineAnnealingLR.pth
-# - final_model_EfficientNet_B4_v2_model_head_mlp_binary_StepLR.pth
-# - final_model_ResNet50_v2_model_head_mlp_binary_CosineAnnealingLR.pth
-# - final_model_Swin_V2_T_v2_model_head_linear_binary_StepLR.pth
-# - multiclass_EfficientNet_B1_Weights.IMAGENET1K_V2.pth
-# - multiclass_EfficientNet_V2_M_Weights.IMAGENET1K_V1.pth
+# Backend 2
+git lfs install
+git clone https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO models/yolo_2stage
+
+# Backend 3
+git clone https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO models/yolo_cascade
 ```
 
-**YOLO Weights** (4 files, ~302MB):
-```bash
-# Add .pt files:
-# - Binary_YOLOv8x.pt
-# - Binary_YOLOv11s.pt
-# - Binary_YOLOv26x.pt
-# - Multiclass_YOLOv8n.pt
-# - Multiclass_YOLOv8x.pt
-# - Multiclass_YOLOv26m.pt
-```
-
-**YOLO Cascade Weights** (8 files, ~460MB)
-```bash
-# Add .pth files:
-# Level 1 — PS vs No-PS 
-# - Level 1 Binary PS or not PS YOLO8x.pt
-# - Level 1 Binary PS or not PS YOLO26x.pt
-
-# Level 2 — Early (Stage I or II) vs Advanced (Stage III or IV)
-# - Level 2 Early vs Advanced YOLO26x.pt
-# - Level 2 Early vs Advanced YOLO8m.pt"
-
-# Level 3a — Early group: Stage I vs Stage II
-# - Level 3a Early YOLO8n.pt
-# - Level 3a Early YOLO26x.pt
-
-# Level 3b — Advanced group: Stage III vs Stage IV
-# - Level 3b Advanced  YOLO8x.pt
-# - Level 3b Advanced  YOLO26x.pt
-
-```
-
-5. **Initialize database**
-```bash
-# Database auto-creates on first run
-# To reset:
-rm users.db
-```
+5. **Update weight paths** in `ps_classifier_yolo.py` and `ps_classifier_yolo_cascade.py` (see Technical Stack section above)
 
 6. **Run the application**
 ```bash
 python main.py
+# Open http://localhost:5001
 ```
 
-7. **Access the web interface**
-```
-Open browser: http://localhost:5001
-```
+---
 
 ### First-Time Setup
 
@@ -686,29 +386,6 @@ Open browser: http://localhost:5001
 
 ---
  
-## 🔑 Obtaining Model Weights
-
-### Why Weights Are Not in Repository
-
-**Model weights are NOT uploaded to this repository** due to file size constraints (~1.0GB total for both pipelines YOLO and Pytorch).
-**Note**: Model weights for YOLO Cascade are available here 👉 **[MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)**
-
-
-### How to Get Weights
-
-**For Recruiters, Researchers, or Collaborators:**
-
-I'm happy to share model weights for legitimate purposes:
-
-```
-📧 Email: [cezary.tubacki@gmail.com]
-💬 Subject: "PS_Classifier Weights Request"
-📝 Please include:
-   - Your name and affiliation
-   - Intended use case (portfolio review, research, evaluation, etc.)
-   - Preferred delivery method (Google Drive, Dropbox, direct transfer)
-```
----
 
 ## 💻 Usage
 
@@ -888,26 +565,6 @@ L3_ADVANCED_MODEL_PATHS = [
 ---
 
 
-## 🤝 Contributing
-
-Contributions welcome! This is a portfolio/research project, but I'm happy to collaborate.
-
-**Ways to Contribute**:
-- 🐛 Report bugs or issues
-- 💡 Suggest new features or architectures
-- 📊 Share datasets (with proper licensing)
-- 📝 Improve documentation
-- 🔬 Validate models on your data
-- 🎨 Enhance UI/UX design
-
-**Contact**:
-- GitHub Issues: [PS_Classifier/issues](https://github.com/MrCzaro/PS_Classifier/issues)
-- Email: [cezary.tubacki@gmail.com] 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see [LICENSE](https://opensource.org/license/mit) file for details.
 
 ### Medical Disclaimer
 
