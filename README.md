@@ -6,7 +6,7 @@
 [![FastHTML](https://img.shields.io/badge/FastHTML-Latest-green.svg)](https://fastht.ml/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/mit)
 
-Deep learning web application for automated pressure sore (pressure ulcer) detection and severity classification using ensemble neural networks and cascade architecture.
+Deep learning web application for automated pressure sore (pressure ulcer) detection and severity classification. The system offers **four interchangeable classification backends** - from a fast 2-stage ensemble to a full 3-level cascade with confidence gating (Torchvision part) accessible througha signle UI.
 
 
 
@@ -75,103 +75,147 @@ Deep learning web application for automated pressure sore (pressure ulcer) detec
 
 ## 🎯 Project Overview
 
-This project implements multiple deep learning pipeline strategies for automated pressure sore detection and classification, selectable at runtime via a backend dropdown. The system combines state-of-the-art computer vision models in ensemble architectures to achieve robust performance across three distinct backends.
+This project implements automated pressure sore detection and staging using deep learning. The web application exposes **four selectable classification backends**, each representing a different architectural approach. All backends share the same FastHTML interface and return an annotated image with a confidence score.
 
 ### Medical Context
 
 **Pressure sores (pressure ulcers)** are localized injuries to skin and underlying tissue, typically over bony prominences, caused by prolonged pressure. They are staged from I to IV based on severity:
 
-- **Stage I**: Non-blanchable erythema (redness) of intact skin
-- **Stage II**: Partial-thickness skin loss with exposed dermis
-- **Stage III**: Full-thickness skin loss (fat visible)
-- **Stage IV**: Full-thickness tissue loss (muscle/bone exposed)
+| Stage | Description |
+|-------|-------------|
+| **Stage I** | Non-blanchable erythema — intact skin with persistent redness |
+| **Stage II** | Partial-thickness skin loss with exposed dermis |
+| **Stage III** | Full-thickness skin loss (subcutaneous fat visible) |
+| **Stage IV** | Full-thickness tissue loss (muscle or bone exposed) |
 
 Early detection and accurate staging are critical for treatment planning and preventing progression.
 
 ---
+
 ## ✨ Key Features
 
-### 🧠 Three Selectable Backends
-
-#### Backend 1 — Torchvision Cascade (PyTorch)
-**Stage 1 — Binary Detection**: 5-model ensemble (ConvNeXt-Tiny, MaxViT-T, EfficientNet-B4, ResNet-50, Swin-V2-T)  
-**Stage 2 — Multi-Class Staging**: 2-model ensemble (EfficientNet-B1, EfficientNet-V2-M)  
-**Weights**: Available on request — see [Obtaining Model Weights](#-obtaining-model-weights)
-
-#### Backend 2 — YOLO 2-Stage ← NEW
-**Stage 1 — Binary Detection**: 3-model YOLO ensemble (YOLO11s, YOLOv8x, YOLO26x)  
-**Stage 2 — Multi-Class Staging**: 3-model YOLO ensemble (YOLOv8n, YOLO26m, YOLOv8x)  
-**Weights**: 👉 [MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)
-
-#### Backend 3 — YOLO Cascade (3-Level Hierarchical)
-**Level 1 — PS vs No-PS**: 2-model ensemble (YOLOv8x, YOLO26n)  
-**Level 2 — Early vs Advanced**: 2-model ensemble (YOLOv8m, YOLO26x)  
-**Level 3a — Stage I vs II**: 2-model ensemble (YOLOv8n, YOLO26x)  
-**Level 3b — Stage III vs IV**: 2-model ensemble (YOLOv8x, YOLO26x)  
-**Weights**: 👉 [MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)
-
+- **4 interchangeable classification backends** selectable from the UI at inference time
+- **Cascade architecture** that mirrors clinical workflow: detect → triage → stage
+- **Confidence gating** at the fine-grained level to flag uncertain predictions for review
+- **Ensemble modeling** at every level for improved robustness
+- **FastHTML + HTMX** web app with drag-and-drop upload and real-time inference
+- **User authentication** with bcrypt password hashing
 ---
 
 ## 🏗️ Architecture
+### Multi-Backend System
 
-### Backend 1 — Torchvision Cascade
+The application selects a backend at request time via the `backend` query/form parameter. Each backend implements the same `classify_image_ps(img_input) → (image, message)` contract.
 
-```
-Image → [Binary Ensemble: 5 models] → PS detected?
-           NO → Return negative
-           YES → [Staging Ensemble: 2 models] → Stage I/II/III/IV
-```
+---
+### Backend 1 — Torchvision 2-Stage (`ps_classifier.py`)
 
-### Backend 2 — YOLO 2-Stage
-
-```
-Image → [Binary YOLO Ensemble: YOLO11s + YOLOv8x + YOLO26x] → PS detected?
-           NO → Return negative
-           YES → [Multiclass YOLO Ensemble: YOLOv8n + YOLO26m + YOLOv8x] → Stage I/II/III/IV
-```
-
-### Backend 3 — YOLO Cascade (3-Level)
+The original cascade. A large binary ensemble detects presence, then a separate ensemble classifies stage.
 
 ```
 Image
   │
   ▼
-[L1] PS vs No-PS  (YOLOv8x + YOLO26n)
-  │ NO  → Return negative
-  │ YES ↓
-[L2] Early (I/II) vs Advanced (III/IV)  (YOLOv8m + YOLO26x)
-  ├─ EARLY    → [L3a] Stage I vs Stage II   (YOLOv8n + YOLO26x)
-  └─ ADVANCED → [L3b] Stage III vs Stage IV (YOLOv8x + YOLO26x)
+[Stage 1 — Binary: PS vs No-PS]
+  5-model ensemble (ConvNeXt-Tiny, MaxViT-T, EfficientNet-B4, ResNet-50, Swin-V2-T)
+  BCEWithLogitsLoss · sigmoid
+  │
+  ├─ NO  → "No pressure sore detected"
+  │
+  └─ YES ▼
+[Stage 2 — Multi-Class: Stage I / II / III / IV]
+  2-model ensemble (EfficientNet-B1, EfficientNet-V2-M)
+  CrossEntropyLoss · softmax
 ```
----
 
-## 🧪 Research & Development
-
-### Experimental Approaches
-
-#### ✅ Current Implementation 1 — Torchvision Cascade Ensemble
-**Architecture**: Binary detection → Multi-class staging  
-**Rationale**: Mimics clinical workflow — detect first, then stage  
-**Pros**: High specificity, interpretable confidence scores  
-**Challenges**: Stage III/IV differentiation remains difficult
-
-#### ✅ Current Implementation 2 — YOLO 2-Stage
-**Architecture**: Binary YOLO ensemble → Multiclass YOLO ensemble  
-**Rationale**: Leverages YOLO's fast inference and classification head for both stages in a single framework  
-**Binary stage**: Near-perfect detection (AUC up to 1.0000 across all 3 models)  
-**Staging**: Macro F1 0.8514 ensemble — significant improvement over Torchvision baseline (0.74)
-
-#### ✅ Current Implementation 3 — YOLO Cascade (3-Level)
-**Architecture**: Hierarchical binary decisions — PS → Early/Advanced → Stage I/II or III/IV  
-**Rationale**: Decomposes the hard 4-class problem into simpler binary boundaries  
-**Joint F1**: 0.9256 (Early path), 0.8916 (Advanced path)  
-**Key finding**: Isolating Stage III/IV from Stage I/II was the primary driver of improvement on the hardest classification pair
-
-#### 🔬 Also Tested
-- **DINOv2** (Meta AI self-supervised ViT): Competitive performance but high computational cost
-- **YOLO object detection** (bounding box mode): Struggled with localization in medical images
+**Weights**: Available on request (see [Obtaining Weights](#-obtaining-model-weights))
 
 ---
+
+### Backend 2 — YOLO 2-Stage (`ps_classifier_yolo.py`)
+
+Same 2-stage logic using Ultralytics YOLO classification models instead of torchvision.
+
+```
+Image
+  │
+  ▼
+[Stage 1 — Binary: PS vs No-PS]
+  3-model YOLO ensemble (YOLOv11s, YOLOv8x, YOLO26x)
+  │
+  ├─ NO  → "No pressure sore detected"
+  │
+  └─ YES ▼
+[Stage 2 — Multi-Class: Stage I / II / III / IV]
+  3-model YOLO ensemble (YOLOv8n, YOLO26m, YOLOv8x)
+```
+
+**Weights**: [MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)
+
+---
+
+### Backend 3 — YOLO 3-Level Cascade (`ps_classifier_yolo_cascade.py`)
+
+A hierarchical cascade replacing multi-class with a sequence of binary decisions.
+
+```
+Image
+  │
+  ▼
+[Level 1 — PS vs No-PS]              2-model YOLO ensemble
+  │
+  ├─ NO  → return
+  └─ YES ▼
+[Level 2 — Early (I/II) vs Advanced (III/IV)]   2-model YOLO ensemble
+  │
+  ├─ EARLY    ▼                      ├─ ADVANCED  ▼
+[Level 3a — Stage I vs II]          [Level 3b — Stage III vs IV]
+  2-model YOLO ensemble               2-model YOLO ensemble
+```
+
+**Weights**: [MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)
+
+---
+
+### Backend 4 — Torchvision 3-Level Cascade (`ps_classifier_torch_cascade.py`) 
+
+The most sophisticated backend. Three cascade levels with **two distinct architectural patterns** and **confidence gating** at Level 3.
+
+```
+Image
+  │
+  ▼
+[Level 1 — PS vs No-PS]
+  2-model torchvision ensemble
+  MaxVit_T (linear head) + ResNet50 (mlp head)
+  BCEWithLogitsLoss · sigmoid
+  │
+  ├─ NO  → return
+  └─ YES ▼
+[Level 2 — Early (I/II) vs Advanced (III/IV)]
+  2-model torchvision ensemble
+  ConvNeXt_Base (mlp head) + EfficientNet_V2_L (linear head)
+  BCEWithLogitsLoss · sigmoid
+  │
+  ├─ EARLY ─────────────────────────┐
+  └─ ADVANCED ──────────┐           │
+                        ▼           ▼
+          [Level 3b]               [Level 3a]
+          Stage III vs IV           Stage I vs II
+          ConvNeXt_Large (MSH)      EfficientNet_V2_L (mlp)
+          + ViT_B_16 (mlp)         + ConvNeXt_Tiny (linear)
+          CrossEntropyLoss          BCEWithLogitsLoss
+          WrappedModel              Direct-attachment
+          ↓ CONFIDENCE GATE ↓       ↓ CONFIDENCE GATE ↓
+          Threshold: 0.65           Threshold: 0.65
+```
+
+**Architectural notes**:
+- L1, L2, L3a use the *direct-attachment* pattern (head replaces backbone classifier slot, outputs `[B,1]` logit → sigmoid)
+- L3b uses the *WrappedModel* pattern (backbone stripped to `nn.Identity`, head operates on raw feature vectors `[B, in_features]`, outputs `[B,2]` logits → softmax+argmax)
+- When Level 3 ensemble confidence < 0.65 the result is still committed but annotated in orange with a clinical review warning
+
+**Weights**: [MrCzaro/Pressure_sore_cascade_classifier_Torch](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_Torch)
 
 ---
 ## 📊 Model Performance
@@ -278,45 +322,36 @@ Joint F1 = product of ensemble F1 scores along each path (conservative lower bou
 Both paths exceed the flat Torchvision staging baseline (0.74 macro F1).
 
 ---
+### Backend 4 — Torchvision 3-Level Cascade
 
-## 🔑 Obtaining Model Weights
+**Level 1: PS vs No-PS** 
 
-### Backend 2 — YOLO 2-Stage
+| Model | Head | Accuracy | Macro F1 | AUC-ROC |
+|-------|------|----------|----------|---------|
+| MaxVit_T | linear | 0.9962 | 0.9962 | 1.0000 |
+| ResNet50 | mlp | 1.0000 | 1.0000 | 1.0000 |
 
-👉 **[MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)**
+**Level 2: Early vs Advanced** 
 
-```bash
-git lfs install
-git clone https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO
-```
+| Model | Head | Accuracy | Macro F1 | AUC-ROC |
+|-------|------|----------|----------|---------|
+| ConvNeXt_Base | mlp | 0.9520 | 0.9520 | 0.9857 |
+| EfficientNet_V2_L | linear | 0.9600 | 0.9600 | 0.9916 |
 
-```python
-from huggingface_hub import hf_hub_download
+**Level 3a: Stage I vs Stage II** 
 
-path = hf_hub_download(
-    repo_id="MrCzaro/Pressure_sore_classifier_YOLO",
-    filename="Binary PS or not PS YOLO8x.pt"
-)
-```
+| Model | Head | Accuracy | Macro F1 | AUC-ROC |
+|-------|------|----------|----------|---------|
+| EfficientNet_V2_L | mlp | 0.9048 | 0.9047 | 0.9849 |
+| ConvNeXt_Tiny | linear | 0.9683 | 0.9682 | 0.9909 |
 
-### Backend 3 — YOLO Cascade
+**Level 3b: Stage III vs Stage IV** 
+| Model | Head | Accuracy | Macro F1 | AUC-ROC |
+|-------|------|----------|----------|---------|
+| ConvNeXt_Large | multi_stage_head | 0.7778 | 0.7773 | 0.8861 |
+| ViT_B_16 | mlp | 0.7937 | 0.7934 | 0.8569 |
 
-👉 **[MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)**
-
-```bash
-git lfs install
-git clone https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO
-```
-
-### Backend 1 — Torchvision
-
-Weights (~800MB) available on request:
-
-```
-📧 Email: cezary.tubacki@gmail.com
-💬 Subject: "PS_Classifier Weights Request"
-📝 Include: Your name, affiliation, and intended use case
-```
+> **Note**: Stage III vs Stage IV remains the most challenging classification pair due to subtle visual differences. Confidence gating (threshold 0.65) is applied at Level 3 to flag uncertain predictions for clinical review.
 
 ---
 
@@ -357,23 +392,32 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. **Download YOLO weights**
-```bash
-# Backend 2
-git lfs install
-git clone https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO models/yolo_2stage
+4. **Obtain model weights** ⚠️
 
-# Backend 3
-git clone https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO models/yolo_cascade
+Model weights are **not included** in this repository due to file size constraints.
+
+**Torchvision backends** — weights available on request:
+```
+📧 Email  : cezary.tubacki@gmail.com
+💬 Subject: "PS_Classifier Weights Request"
+📝 Include: your name, affiliation, and intended use case
 ```
 
-5. **Update weight paths** in `ps_classifier_yolo.py` and `ps_classifier_yolo_cascade.py` (see Technical Stack section above)
+**YOLO backends** — weights available on Hugging Face:
+- YOLO 2-Stage: [MrCzaro/Pressure_sore_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_classifier_YOLO)
+- YOLO Cascade: [MrCzaro/Pressure_sore_cascade_classifier_YOLO](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_YOLO)
+- **Torch Cascade**: [MrCzaro/Pressure_sore_cascade_classifier_Torch](https://huggingface.co/MrCzaro/Pressure_sore_cascade_classifier_Torch) 🆕
 
-6. **Run the application**
+5. **Run the application**
 ```bash
 python main.py
-# Open http://localhost:5001
 ```
+
+6. **Open in browser**
+```
+http://localhost:5001
+```
+
 
 ---
 
@@ -392,7 +436,7 @@ python main.py
 ### Web Interface
 
 **Selecting a backend**:
-Use the "Model backend" dropdown to choose between Torchvision, YOLO, and YOLO Cascade before classifying. The active backend is shown as a badge on every result.
+Use the "Model backend" dropdown to choose between Torchvision, Torchvision cascade, YOLO, and YOLO Cascade before classifying. The active backend is shown as a badge on every result.
 
 **Example Classification**:
 1. Select a backend from the dropdown
@@ -405,62 +449,6 @@ Use the "Model backend" dropdown to choose between Torchvision, YOLO, and YOLO C
 3. Click "Classify Image"
 4. Results display with backend badge and cascade path info
 
-### Programmatic API
-
-```python
-# Two-stage backends
-from ps_classifier import classify_image_ps        # Torchvision
-from ps_classifier_yolo import classify_image_ps   # YOLO
-
-annotated_img, message = classify_image_ps("path/to/image.jpg")
-print(message)
-# "✅ Pressure sore detected\nStage: stage III\n(0.87 confidence)"
-
-# Three-level YOLO Cascade — full detail
-from ps_classifier_yolo_cascade import classify_image_cascade, cascade_confidence
-
-final_image, message, details = classify_image_cascade("path/to/image.jpg")
-print(message)
-# "✅ Pressure sore detected
-#  Severity group: early (0.84)
-#  Stage: stage II (0.79)"
-
-print(details)
-# {
-#   "level_1": {"label": "pressure sore", "confidence": 0.97},
-#   "level_2": {"label": "early",         "confidence": 0.84},
-#   "level_3": {"label": "stage II",      "confidence": 0.79, "group": "Early"}
-# }
-
-# Joint confidence across all three levels
-print(cascade_confidence(details))  # 0.97 × 0.84 × 0.79 ≈ 0.644
-
-# Drop-in wrapper (same signature as original classify_image_ps)
-from ps_classifier_yolo_cascade import classify_image_ps as classify_cascade
-annotated_img, message = classify_cascade("path/to/image.jpg")
-```
-
-### Batch Processing
-
-```python
-import os
-from pathlib import Path
-from ps_classifier_yolo_cascade import classify_image_cascade, cascade_confidence
-
-input_dir  = Path("images/to_classify")
-output_dir = Path("results/annotated")
-output_dir.mkdir(exist_ok=True)
-
-for img_file in input_dir.glob("*.jpg"):
-    result_img, message, details = classify_image_cascade(str(img_file))
-
-    if result_img:
-        result_img.save(output_dir / img_file.name)
-
-        with open(output_dir / "predictions.txt", "a") as f:
-            joint_conf = cascade_confidence(details)
-            f.write(f"{img_file.name}: {message.strip()} | joint_conf={joint_conf}\n")
-```
 
 ---
 
@@ -541,6 +529,59 @@ L3_ADVANCED_MODEL_PATHS = [
     "models/yolo_cascade/Level 3b Advanced  YOLO8x.pt",
     "models/yolo_cascade/Level 3b Advanced  YOLO26x.pt",
 ]
+```
+
+**PyTorch Cascade** - 2 model per 4 levels:
+```python
+# Model registry - architecture, checkpoint path, head type, dropout: 
+
+# Level 1- PS vs No-PS (BCEWithLogitsLoss, sigmoid, num_classes=1)
+L1_SETTINGS: dict[str, tuple[str, str, float]] = {
+    "MaxVit_T": (
+        "models/torch_cascade/Level 1 Binary PS or not PS MaxVit_T.pth",
+        "linear", 0.2396,
+    ),
+    "ResNet50": (
+        "models/torch_cascade/Level 1 Binary PS or not PS ResNet50.pth",
+        "mlp", 0.5840,
+    ),
+}
+
+# Level 2 — Early vs Advanced  (BCEWithLogitsLoss, sigmoid, num_classes=1)
+L2_SETTINGS: dict[str, tuple[str, str, float]] = {
+    "ConvNeXt_Base": (
+        "models/torch_cascade/Level 2 Early vs Advanced ConvNeXt_Base.pth",
+        "mlp", 0.1025,
+    ),
+    "EfficientNet_V2_L": (
+        "models/torch_cascade/Level 2 Early vs Advanced EfficientNet_V2_L.pth",
+        "linear", 0.3564,
+    ),
+}
+
+# Level 3a — Stage I vs Stage II  (BCEWithLogitsLoss, sigmoid, num_classes=1)
+L3A_SETTINGS: dict[str, tuple[str, str, float]] = {
+    "EfficientNet_V2_L": (
+        "models/torch_cascade/Level 3a Early EfficientNet_V2_L.pth",
+        "mlp", 0.1949,
+    ),
+    "ConvNeXt_Tiny": (
+        "models/torch_cascade/Level 3a Early ConvNeXt_Tiny.pth",
+        "linear", 0.1601,
+    ),
+}
+
+# Level 3b — Stage III vs Stage IV  (CrossEntropyLoss, softmax+argmax, WrappedModel)
+L3B_SETTINGS: dict[str, tuple[str, str, float]] = {
+    "ConvNeXt_Large": (
+        "models/torch_cascade/Level 3b Advanced ConvNeXt_Large.pth",
+        "multi_stage_head", 0.6594,
+    ),
+    "ViT_B_16": (
+        "models/torch_cascade/Level 3b Advanced ViT_B_16.pth",
+        "mlp", 0.5445,
+    ),
+}
 ```
 ---
 
