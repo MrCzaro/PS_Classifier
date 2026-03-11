@@ -16,7 +16,7 @@ from examples_config import *
 import ps_classifier as _torch_clf
 import ps_classifier_yolo as _yolo_clf
 import ps_classifier_yolo_cascade as _yolo_cascade_clf
-
+import ps_classifier_torch_cascade as _torch_cascade_clf
 
 
 
@@ -28,7 +28,8 @@ login_redir = RedirectResponse("/login", status_code=303)
 BACKENDS = {
     "torchvision": _torch_clf.classify_image_ps,
     "yolo" : _yolo_clf.classify_image_ps,
-    "yolo_cascade" : _yolo_cascade_clf.classify_image_ps
+    "yolo_cascade" : _yolo_cascade_clf.classify_image_ps,
+    "torch_cascade":  _torch_cascade_clf.classify_image_ps
 }
 
 def get_classifier(backend: str):
@@ -112,6 +113,7 @@ async def index(req, sess):
         Option("Torchvision", value="torchvision", selected=True),
         Option("YOLO", value="yolo"),
         Option("YOLO Cascade",  value="yolo_cascade"),
+        Option("Torch Cascade", value="torch_cascade"),
         name="backend", id="backend", cls="mt-2 w-48"
     )
 

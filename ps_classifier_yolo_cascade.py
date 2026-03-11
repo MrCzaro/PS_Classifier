@@ -116,7 +116,7 @@ def classify_image_cascade(img_input):
 
     if not is_ps:
         message = f"❌ No pressure sore detected ({l1_conf:.2f} confidence)"
-        annotated = annotate_image(img, l1_label, l1_conf, font_size=20)
+        annotated = annotate_image(img, l1_label, l1_conf)
         return (annotated or img), message, details
     
     # Level 2: Early (I/II) vs Advanced (III/IV)
@@ -149,7 +149,7 @@ def classify_image_cascade(img_input):
         f"Severity group: {l2_label} ({l2_conf:.2f})\n"
         f"Stage: {l3_label} ({l3_conf:.2f})"
     )
-    annotated = annotate_image(img, l3_label, l3_conf, font_size=20)
+    annotated = annotate_image(img, l3_label, l3_conf)
     return (annotated or img), message, details
 
 def cascade_confidence(details: dict) -> float:

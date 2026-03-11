@@ -1,4 +1,4 @@
-from examples_config import *
+#from examples_config import *
 from image_utils import annotate_image
 import torch
 import numpy as np

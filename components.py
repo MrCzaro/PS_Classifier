@@ -112,6 +112,7 @@ def backend_badge(backend: str):
         "torchvision":  ("Torchvision", "badge-info"),
         "yolo":         ("YOLO",        "badge-warning"),
         "yolo_cascade": ("YOLO Cascade","badge-success"),
+        "torch_cascade": ("Torch Cascade","badge-primary"),
     }
     text, cls = labels.get(backend, ("Unknown", "badge-ghost"))
     return Span(f"Backend: {text}", cls=f"badge {cls} mb-2")

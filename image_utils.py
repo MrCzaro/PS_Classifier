@@ -1,7 +1,13 @@
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 
-def annotate_image(img, label, confidence, font_size=30):
+def annotate_image(
+    img: Image.Image, 
+    label: str, 
+    confidence: float, 
+    cascade_info: str = "", 
+    font_size: int=20, 
+    uncertain: bool = False) -> Image.Image:
     """
     Anotates an image with predicted label and confidence.
     
@@ -9,7 +15,9 @@ def annotate_image(img, label, confidence, font_size=30):
         img (PIL.Image): Input image (can be a PIL object or path to image file).
         label (str) : Predicted label name.
         confidence (float) : Model confidence value (0-1 or %).
+        cascade_info (str) : Optional additional info from cascade levels(Torch). 
         font_size (int) : Font size for annotation text.
+        uncertain (bool) : If True, annotate with "Uncertain Prediction" instead of label/confidence.
 
     Supports:
         - PIL.Image
@@ -20,7 +28,6 @@ def annotate_image(img, label, confidence, font_size=30):
         PIL.Image.Image (annotated)
 
     """
-    # print(f"Input type to annotate_image: {type(img)}")
     
     try:
         if isinstance(img, Image.Image):
@@ -38,20 +45,24 @@ def annotate_image(img, label, confidence, font_size=30):
 
     # Create drawing object
     draw = ImageDraw.Draw(annotated)
-    
+
     # Load default font (or specify TTF ) 
     try:
         font = ImageFont.truetype("arial.ttf", font_size)
+        small = ImageFont.truetype("arial.ttf", max(font_size - 6, 12))
     except IOError:
         font = ImageFont.load_default()
+        small = font
 
-    # Define text
-    text_label = f"Predicted: {label.replace('_', ' ')}"
-    text_confidence = f"Confidence: {confidence:.2f}"
-
-    # Position text at top-left corner
+    colour = "orange" if uncertain else "yellow"
     x,y = 10, 10
-    draw.text((x,y), text_label, font=font, fill="yellow")
-    draw.text((x,y + font_size + 5), text_confidence, font=font, fill="yellow")
-    
+    step = font_size + 45
+
+    draw.text((x,y), f"Stage: {label}", font=font, fill=colour)
+    draw.text((x,y + step), f"Confidence: {confidence:.2f}", font=font, fill=colour)
+    if cascade_info:
+        draw.text((x,y + step *2), cascade_info, font=small, fill="cyan")
+    if uncertain:
+        draw.text((x,y + step * 3), "Uncertain Prediction", font=small, fill="red")
+
     return annotated
